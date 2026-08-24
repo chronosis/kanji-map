@@ -41,6 +41,16 @@ export function hasApiSrs(sources: number, srsAvg: number | null): boolean {
   return sources > 0 && srsAvg != null && srsAvg > 0
 }
 
+/** Accuracy used for labels and sort order; null when the cell shows `--`. */
+export function sortableAccuracy(
+  accuracyAvg: number | null,
+  sources: number,
+  srsAvg: number | null
+): number | null {
+  if (!hasApiSrs(sources, srsAvg)) return null
+  return accuracyAvg
+}
+
 /**
  * Untracked: on the school/jōyō list but absent from WaniKani’s catalog.
  * These will never receive a WK SRS stage. Visual: neutral-500 + blue outline.
@@ -117,21 +127,81 @@ export function cellVisualClass(mode: ColorMode, input: CellVisualInput): string
   return 'km-srs km-unstudied'
 }
 
+/** Anchor colors at the named accuracy levels (interpolated every 5% between these). */
+export const ACCURACY_COLOR_STOPS: ReadonlyArray<{ pct: number, hex: string }> = [
+  { pct: 100, hex: '#22c55e' }, // green
+  { pct: 80, hex: '#86efac' }, // light green
+  { pct: 70, hex: '#bef264' }, // lime
+  { pct: 60, hex: '#fde047' }, // yellow
+  { pct: 50, hex: '#f87171' }, // red
+  { pct: 40, hex: '#fb7185' }, // rose
+  { pct: 25, hex: '#d946ef' }, // magenta
+  { pct: 10, hex: '#a855f7' }, // violet
+  { pct: 0, hex: '#7e22ce' } // purple
+]
+
+/** 5% steps → buckets 0 (0%) … 20 (100%). */
+export const ACCURACY_HEATMAP_STEP_PCT = 5
+export const ACCURACY_HEATMAP_MAX_BUCKET = 20
+
+function parseHex(hex: string): [number, number, number] {
+  const h = hex.replace('#', '')
+  return [
+    Number.parseInt(h.slice(0, 2), 16),
+    Number.parseInt(h.slice(2, 4), 16),
+    Number.parseInt(h.slice(4, 6), 16)
+  ]
+}
+
+function formatHex(r: number, g: number, b: number): string {
+  const channel = (n: number) => Math.round(n).toString(16).padStart(2, '0')
+  return `#${channel(r)}${channel(g)}${channel(b)}`
+}
+
+/** Continuous color at an accuracy %, lerping RGB between adjacent stops. */
+export function interpolateAccuracyColor(accuracyPct: number): string {
+  const a = Math.min(100, Math.max(0, accuracyPct))
+  const stops = ACCURACY_COLOR_STOPS
+  if (a >= stops[0]!.pct) return stops[0]!.hex
+  if (a <= stops[stops.length - 1]!.pct) return stops[stops.length - 1]!.hex
+
+  for (let i = 0; i < stops.length - 1; i++) {
+    const hi = stops[i]!
+    const lo = stops[i + 1]!
+    if (a <= hi.pct && a >= lo.pct) {
+      const span = hi.pct - lo.pct
+      const t = span === 0 ? 0 : (a - lo.pct) / span
+      const [r0, g0, b0] = parseHex(lo.hex)
+      const [r1, g1, b1] = parseHex(hi.hex)
+      return formatHex(
+        r0 + (r1 - r0) * t,
+        g0 + (g1 - g0) * t,
+        b0 + (b1 - b0) * t
+      )
+    }
+  }
+  return stops[stops.length - 1]!.hex
+}
+
 /**
- * Map accuracy % to heatmap bucket 0–9.
- *
- * - **50–100%**: former green→yellow→orange→red ramp, compressed into buckets 5–9
- * - **0–50%**: red → magenta → purple into buckets 0–4 (50% is red at bucket 5)
+ * Map accuracy % to a 5% heatmap bucket (0–20).
+ * Bucket n covers roughly [n×5%, n×5%+5); 100% → 20.
  */
 export function accuracyHeatmapBucket(accuracyAvg: number): number {
   const a = Math.min(100, Math.max(0, accuracyAvg))
-  if (a >= 50) {
-    const t = (a - 50) / 50
-    return 5 + Math.min(4, Math.floor(t * 5))
-  }
-  const t = a / 50
-  return Math.min(4, Math.floor(t * 5))
+  return Math.min(ACCURACY_HEATMAP_MAX_BUCKET, Math.floor(a / ACCURACY_HEATMAP_STEP_PCT))
 }
+
+/** Hex for the 5% bucket containing this accuracy. */
+export function accuracyHeatmapColor(accuracyAvg: number): string {
+  return ACCURACY_HEATMAP_PALETTE[accuracyHeatmapBucket(accuracyAvg)]!
+}
+
+/** Precomputed palette: index 0 = 0%, index 20 = 100%. */
+export const ACCURACY_HEATMAP_PALETTE: readonly string[] = Array.from(
+  { length: ACCURACY_HEATMAP_MAX_BUCKET + 1 },
+  (_, bucket) => interpolateAccuracyColor(bucket * ACCURACY_HEATMAP_STEP_PCT)
+)
 
 /** @deprecated Prefer cellVisualClass — kept for existing tests. */
 export function srsBackground(srsAvg: number | null): string {
@@ -159,9 +229,9 @@ export function formatAccuracy(
   accuracyAvg: number | null,
   options?: { sources?: number, srsAvg?: number | null }
 ): string {
-  if (options) {
-    if (!hasApiSrs(options.sources ?? 0, options.srsAvg ?? null)) return '--'
-  }
-  if (accuracyAvg == null) return '--'
-  return `${Math.round(accuracyAvg)}%`
+  const effective = options
+    ? sortableAccuracy(accuracyAvg, options.sources ?? 0, options.srsAvg ?? null)
+    : accuracyAvg
+  if (effective == null) return '--'
+  return `${Math.round(effective)}%`
 }

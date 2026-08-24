@@ -1,5 +1,5 @@
 import type { JlptLevel, KanjiUnionEntry, MapCell, OrderMode, SchoolGrade } from '../types/kanji'
-import { isCurriculum, isUntracked } from './colors'
+import { isCurriculum, isUntracked, sortableAccuracy } from './colors'
 
 /** In WK order mode, untracked cells sort after all WK levels and get gridIndex ≥ this. */
 export const WK_UNTRACKED_SORT_OFFSET = 9000
@@ -17,6 +17,13 @@ function cmpNumNullLast(a: number | null | undefined, b: number | null | undefin
   if (a == null) return 1
   if (b == null) return -1
   return a - b
+}
+
+function cmpNumDescNullLast(a: number | null | undefined, b: number | null | undefined): number {
+  if (a == null && b == null) return 0
+  if (a == null) return 1
+  if (b == null) return -1
+  return b - a
 }
 
 function cmpChar(a: string, b: string): number {
@@ -122,6 +129,48 @@ export function compareByWk(a: WkOrderable, b: WkOrderable): number {
   return cmpChar(a.character, b.character)
 }
 
+/** WK level → API response order → code point (no untracked handling). */
+function compareByWkLessonOrder(a: WkOrderable, b: WkOrderable): number {
+  const level = cmpNumNullLast(a.wkLevel ?? null, b.wkLevel ?? null)
+  if (level !== 0) return level
+
+  const apiOrder = cmpNumNullLast(a.wkApiOrder ?? null, b.wkApiOrder ?? null)
+  if (apiOrder !== 0) return apiOrder
+
+  return cmpChar(a.character, b.character)
+}
+
+/**
+ * SRS stage: highest first; then WaniKani lesson order; untracked always last.
+ */
+export function compareBySrs(a: WkOrderable, b: WkOrderable): number {
+  const aUntracked = cellIsUntracked(a)
+  const bUntracked = cellIsUntracked(b)
+  if (aUntracked !== bUntracked) return aUntracked ? 1 : -1
+
+  const srs = cmpNumDescNullLast(a.srsAvg ?? null, b.srsAvg ?? null)
+  if (srs !== 0) return srs
+
+  return compareByWkLessonOrder(a, b)
+}
+
+/**
+ * Accuracy: highest first; null accuracy after scored cells; untracked always last.
+ */
+export function compareByAccuracy(a: WkOrderable, b: WkOrderable): number {
+  const aUntracked = cellIsUntracked(a)
+  const bUntracked = cellIsUntracked(b)
+  if (aUntracked !== bUntracked) return aUntracked ? 1 : -1
+
+  const accuracy = cmpNumDescNullLast(
+    sortableAccuracy(a.accuracyAvg ?? null, a.sources ?? 0, a.srsAvg ?? null),
+    sortableAccuracy(b.accuracyAvg ?? null, b.sources ?? 0, b.srsAvg ?? null)
+  )
+  if (accuracy !== 0) return accuracy
+
+  return cmpChar(a.character, b.character)
+}
+
 export function compareKanjiEntries(a: KanjiUnionEntry, b: KanjiUnionEntry): number {
   return compareByGrade(a, b)
 }
@@ -131,6 +180,12 @@ export function getComparator(mode: OrderMode): (a: KanjiUnionEntry, b: KanjiUni
   if (mode === 'joyo') return compareByJoyoAppearance
   if (mode === 'wk') {
     return compareByWk as (a: KanjiUnionEntry, b: KanjiUnionEntry) => number
+  }
+  if (mode === 'accuracy') {
+    return compareByAccuracy as (a: KanjiUnionEntry, b: KanjiUnionEntry) => number
+  }
+  if (mode === 'srs') {
+    return compareBySrs as (a: KanjiUnionEntry, b: KanjiUnionEntry) => number
   }
   return compareByGrade
 }

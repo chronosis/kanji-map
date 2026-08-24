@@ -106,7 +106,9 @@ export async function syncAllProgress() {
       apiOrder: row.apiOrder,
       srsStage: row.srsStage,
       accuracyPct: row.accuracyPct,
+      meaningCorrect: row.meaningCorrect,
       meaningIncorrect: row.meaningIncorrect,
+      readingCorrect: row.readingCorrect,
       readingIncorrect: row.readingIncorrect,
       rawJson: JSON.stringify(row),
       syncedAt
@@ -118,7 +120,9 @@ export async function syncAllProgress() {
         apiOrder: row.apiOrder,
         srsStage: row.srsStage,
         accuracyPct: row.accuracyPct,
+        meaningCorrect: row.meaningCorrect,
         meaningIncorrect: row.meaningIncorrect,
+        readingCorrect: row.readingCorrect,
         readingIncorrect: row.readingIncorrect,
         rawJson: JSON.stringify(row),
         syncedAt

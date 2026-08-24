@@ -234,3 +234,89 @@ export async function fetchBunproKanjiProgress(token: string): Promise<BunproKan
 
   return results
 }
+
+/**
+ * Soft search for vocab containing a kanji. Returns [] on auth/route failure
+ * (BunPro search is undocumented and often flaky).
+ */
+export async function searchBunproVocabForKanji(
+  token: string,
+  character: string,
+  limit = 6
+): Promise<Array<{ characters: string, reading: string | null, meanings: string[], url?: string }>> {
+  if (!isBunproFrontendToken(token) || !character) return []
+
+  const styles: Array<'token' | 'bearer'> = preferredAuthStyle === 'bearer'
+    ? ['bearer', 'token']
+    : ['token', 'bearer']
+
+  let body: unknown = null
+  for (const style of styles) {
+    try {
+      const res = await fetch(`${BP_BASE}/search/v1_1`, {
+        method: 'POST',
+        headers: {
+          ...authHeaders(token, style),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ query: character })
+      })
+      if (res.ok) {
+        preferredAuthStyle = style
+        body = await res.json()
+        break
+      }
+      if (res.status !== 401 && res.status !== 403) break
+    } catch {
+      break
+    }
+  }
+
+  if (body == null) return []
+
+  const items = unwrapItems(body)
+  const out: Array<{ characters: string, reading: string | null, meanings: string[], url?: string }> = []
+
+  for (const item of items) {
+    if (out.length >= limit) break
+    const rec = asRecord(item)
+    if (!rec) continue
+
+    const texts: string[] = []
+    collectStrings(item, texts)
+    const japanese = texts.find(t => t.includes(character) && t.length <= 12 && extractKanji(t).includes(character))
+      ?? null
+    if (!japanese) continue
+
+    const reading = readString(
+      rec.reading,
+      rec.kana,
+      rec.furigana,
+      asRecord(rec.reviewable)?.reading
+    )
+    const meaning = readString(
+      rec.english,
+      rec.meaning,
+      rec.primary_definition,
+      asRecord(rec.reviewable)?.english
+    )
+
+    out.push({
+      characters: japanese,
+      reading,
+      meanings: meaning ? [meaning] : [],
+      url: typeof rec.slug === 'string'
+        ? `https://bunpro.jp/vocabulary/${encodeURIComponent(rec.slug)}`
+        : undefined
+    })
+  }
+
+  return out
+}
+
+function readString(...values: unknown[]): string | null {
+  for (const v of values) {
+    if (typeof v === 'string' && v.trim()) return v.trim()
+  }
+  return null
+}

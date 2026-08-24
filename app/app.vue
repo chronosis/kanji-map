@@ -35,7 +35,7 @@ const { syncing, runSync } = useApiSync()
             to="/"
             class="flex items-center gap-2 font-semibold text-highlighted"
           >
-            <AppLogo class="h-6 w-auto" />
+            <AppLogo class="h-9 w-9 shrink-0" />
             <span>Kanji Map</span>
           </NuxtLink>
         </template>

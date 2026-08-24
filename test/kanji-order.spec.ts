@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   assignGridIndices,
+  compareByAccuracy,
   compareByJoyoAppearance,
+  compareBySrs,
   compareByUsage,
   compareByWk,
   compareKanjiEntries,
@@ -85,6 +87,41 @@ describe('kanji-order', () => {
     ]
     expect(sortMapCells(cells, 'wk').map(c => c.character)).toEqual(['月', '一', '漢', '稀'])
     expect(compareByWk(cells[0], cells[1])).toBeGreaterThan(0)
+  })
+
+  it('orders by accuracy descending with untracked last', () => {
+    const cells = [
+      cell('未', { inJoyoo: true, schoolGrade: 2, accuracyAvg: 90, inWanikani: false }),
+      cell('日', { inWanikani: true, accuracyAvg: 95, sources: 1, srsAvg: 5 }),
+      cell('月', { inWanikani: true, accuracyAvg: 80, sources: 1, srsAvg: 4 }),
+      cell('学', { inWanikani: true, accuracyAvg: null, sources: 0 }),
+      cell('外', { inJoyoo: false, accuracyAvg: null, inWanikani: false })
+    ]
+    expect(sortMapCells(cells, 'accuracy').map(c => c.character)).toEqual(['日', '月', '外', '学', '未'])
+    expect(compareByAccuracy(cells[1], cells[2])).toBeLessThan(0)
+    expect(compareByAccuracy(cells[0], cells[1])).toBeGreaterThan(0)
+  })
+
+  it('ignores stored accuracy when SRS is still zero (unstudied display)', () => {
+    const cells = [
+      cell('僕', { inWanikani: true, accuracyAvg: 100, sources: 1, srsAvg: 0 }),
+      cell('日', { inWanikani: true, accuracyAvg: 100, sources: 1, srsAvg: 5 }),
+      cell('月', { inWanikani: true, accuracyAvg: null, sources: 1, srsAvg: 0 })
+    ]
+    expect(sortMapCells(cells, 'accuracy').map(c => c.character)).toEqual(['日', '僕', '月'])
+  })
+
+  it('orders by SRS stage descending then WaniKani lesson order', () => {
+    const cells = [
+      cell('火', { inWanikani: true, srsAvg: 9, wkLevel: 2, wkApiOrder: 10, sources: 1 }),
+      cell('水', { inWanikani: true, srsAvg: 9, wkLevel: 1, wkApiOrder: 5, sources: 1 }),
+      cell('木', { inWanikani: true, srsAvg: 4, wkLevel: 3, wkApiOrder: 1, sources: 1 }),
+      cell('金', { inWanikani: true, srsAvg: 0, wkLevel: 5, wkApiOrder: 1, sources: 1 }),
+      cell('未', { inJoyoo: true, schoolGrade: 2, inWanikani: false, srsAvg: null, sources: 0 })
+    ]
+    expect(sortMapCells(cells, 'srs').map(c => c.character)).toEqual(['水', '火', '木', '金', '未'])
+    expect(compareBySrs(cells[0], cells[1])).toBeGreaterThan(0)
+    expect(compareBySrs(cells[2], cells[3])).toBeLessThan(0)
   })
 
   it('puts untracked last in WK order with gridIndex +9000', () => {

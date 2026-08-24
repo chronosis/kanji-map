@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import type { ColorMode, MapCell } from '../../shared/types/kanji'
-import { jishoKanjiUrl } from '../../shared/utils/kanji'
 import {
   cellVisualClass,
   formatAccuracy,
@@ -20,6 +19,7 @@ const CELL_W_PX = 40
 const CELL_H_PX = 60
 const GAP_PX = 1
 const PAD_PX = 8
+const DRAG_CLICK_THRESHOLD_PX = 6
 
 const props = defineProps<{
   cells: MapCell[]
@@ -28,6 +28,12 @@ const props = defineProps<{
   highlightGrade: number | 'jh' | null
   highlightSrsMin: number | null
   highlightSrsMax: number | null
+  /** When false, ignore global pan/zoom hotkeys (e.g. detail modal open). */
+  keyboardEnabled?: boolean
+}>()
+
+const emit = defineEmits<{
+  select: [character: string]
 }>()
 
 const columns = defineModel<GridColumnCount>('columns', {
@@ -38,6 +44,9 @@ const scale = ref(1)
 const translate = reactive({ x: 0, y: 0 })
 const dragging = ref(false)
 const lastPointer = reactive({ x: 0, y: 0 })
+const pointerOrigin = reactive({ x: 0, y: 0 })
+const didPan = ref(false)
+const capturedPointerId = ref<number | null>(null)
 const viewport = ref<HTMLElement | null>(null)
 /** Skip center-preserve on the first columns watch after mount. */
 const allowCenterPreserve = ref(false)
@@ -169,32 +178,70 @@ function stepColumns(direction: -1 | 1) {
 
 function onWheel(event: WheelEvent) {
   event.preventDefault()
-  // Zoom in (fewer columns) when scrolling up / pinch-out equivalent
-  stepColumns(event.deltaY > 0 ? 1 : -1)
+  if (event.ctrlKey) {
+    stepColumns(event.deltaY > 0 ? 1 : -1)
+    return
+  }
+  translate.y -= event.deltaY
+  applyClamp()
+}
+
+function releasePointerCapture() {
+  const el = viewport.value
+  if (el && capturedPointerId.value != null) {
+    try {
+      el.releasePointerCapture(capturedPointerId.value)
+    } catch {
+      // pointer may already be released
+    }
+    capturedPointerId.value = null
+  }
 }
 
 function onPointerDown(event: PointerEvent) {
   dragging.value = true
+  didPan.value = false
   lastPointer.x = event.clientX
   lastPointer.y = event.clientY
-  ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+  pointerOrigin.x = event.clientX
+  pointerOrigin.y = event.clientY
 }
 
 function onPointerMove(event: PointerEvent) {
   if (!dragging.value) return
-  translate.x += event.clientX - lastPointer.x
-  translate.y += event.clientY - lastPointer.y
+  const dx = event.clientX - lastPointer.x
+  const dy = event.clientY - lastPointer.y
+  translate.x += dx
+  translate.y += dy
   lastPointer.x = event.clientX
   lastPointer.y = event.clientY
+  const totalDx = event.clientX - pointerOrigin.x
+  const totalDy = event.clientY - pointerOrigin.y
+  if (Math.hypot(totalDx, totalDy) > DRAG_CLICK_THRESHOLD_PX) {
+    if (!didPan.value) {
+      didPan.value = true
+      const el = viewport.value
+      if (el && capturedPointerId.value == null) {
+        try {
+          el.setPointerCapture(event.pointerId)
+          capturedPointerId.value = event.pointerId
+        } catch {
+          // ignore capture failures
+        }
+      }
+    }
+  }
   applyClamp()
 }
 
 function onPointerUp() {
+  releasePointerCapture()
   dragging.value = false
 }
 
-function openJisho(character: string) {
-  window.open(jishoKanjiUrl(character), '_blank', 'noopener,noreferrer')
+function onCellClick(character: string) {
+  if (didPan.value) return
+  emit('select', character)
 }
 
 function zoomIn() {
@@ -219,6 +266,7 @@ function panByRows(rows: number) {
 }
 
 function onWindowKeyDown(event: KeyboardEvent) {
+  if (props.keyboardEnabled === false) return
   if (event.altKey || event.ctrlKey || event.metaKey) return
 
   switch (event.code) {
@@ -318,7 +366,7 @@ defineExpose({ zoomIn, zoomOut, resetView, fitWidth })
             height: `${CELL_H_PX}px`
           }"
           :title="`${cell.character} · ${schoolYearLabel(cell.schoolGrade, cell.inJoyoo)} · JLPT ${cell.jlptLevel ?? '—'} · SRS ${cell.srsAvg?.toFixed(1) ?? '—'} · ${accuracyLabel(cell)}`"
-          @click.stop="openJisho(cell.character)"
+          @click="onCellClick(cell.character)"
         >
           <span class="select-none font-bold text-gray-900 dark:text-gray-950">{{ cell.character }}</span>
           <span class="pointer-events-none absolute bottom-0.5 right-0.5 text-[0.6rem] leading-none text-gray-800/80">

@@ -22,7 +22,9 @@ export const progressWanikani = sqliteTable('progress_wanikani', {
   apiOrder: integer('api_order'),
   srsStage: integer('srs_stage').notNull(),
   accuracyPct: real('accuracy_pct'),
+  meaningCorrect: integer('meaning_correct').notNull().default(0),
   meaningIncorrect: integer('meaning_incorrect').notNull().default(0),
+  readingCorrect: integer('reading_correct').notNull().default(0),
   readingIncorrect: integer('reading_incorrect').notNull().default(0),
   rawJson: text('raw_json'),
   syncedAt: text('synced_at').notNull()

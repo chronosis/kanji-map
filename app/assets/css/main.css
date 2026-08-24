@@ -44,17 +44,28 @@ body,
 .km-srs.km-burned { background-color: #818cf8; }
 
 /*
- * Accuracy heatmap:
- * - 100%→50% (km-acc-9 … km-acc-5): green → lime → yellow → orange → red
- * - 50%→0%  (km-acc-5 … km-acc-0): red → magenta → purple
+ * Accuracy heatmap — 5% steps (km-acc-0 = 0% … km-acc-20 = 100%).
+ * Anchor stops: green(100) → yellow(60) → red(50) → magenta(25) → purple(0);
+ * intermediate classes use RGB interpolation between those stops.
  */
-.km-acc-9 { background-color: #22c55e; } /* ~100% green */
-.km-acc-8 { background-color: #86efac; } /* light green */
-.km-acc-7 { background-color: #bef264; } /* lime */
-.km-acc-6 { background-color: #fde047; } /* yellow */
-.km-acc-5 { background-color: #f87171; } /* ~50% red */
-.km-acc-4 { background-color: #fb7185; } /* rose */
-.km-acc-3 { background-color: #e879f9; } /* light magenta */
-.km-acc-2 { background-color: #d946ef; } /* ~25% magenta */
-.km-acc-1 { background-color: #a855f7; } /* violet */
-.km-acc-0 { background-color: #7e22ce; } /* ~0% purple */
+.km-acc-0 { background-color: #7e22ce; } /* 0% purple */
+.km-acc-1 { background-color: #933ce3; } /* 5% */
+.km-acc-2 { background-color: #a855f7; } /* 10% violet */
+.km-acc-3 { background-color: #b850f4; } /* 15% */
+.km-acc-4 { background-color: #c94bf2; } /* 20% */
+.km-acc-5 { background-color: #d946ef; } /* 25% magenta */
+.km-acc-6 { background-color: #e454cc; } /* 30% */
+.km-acc-7 { background-color: #f063a8; } /* 35% */
+.km-acc-8 { background-color: #fb7185; } /* 40% rose */
+.km-acc-9 { background-color: #fa717b; } /* 45% */
+.km-acc-10 { background-color: #f87171; } /* 50% red */
+.km-acc-11 { background-color: #fba95c; } /* 55% */
+.km-acc-12 { background-color: #fde047; } /* 60% yellow */
+.km-acc-13 { background-color: #dee956; } /* 65% */
+.km-acc-14 { background-color: #bef264; } /* 70% lime */
+.km-acc-15 { background-color: #a2f188; } /* 75% */
+.km-acc-16 { background-color: #86efac; } /* 80% light green */
+.km-acc-17 { background-color: #6de599; } /* 85% */
+.km-acc-18 { background-color: #54da85; } /* 90% */
+.km-acc-19 { background-color: #3bd072; } /* 95% */
+.km-acc-20 { background-color: #22c55e; } /* 100% green */

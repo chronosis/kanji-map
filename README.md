@@ -14,7 +14,7 @@ Japanese literacy is taught against a national character list (**常用漢字**)
 - Color by **SRS stage** or **review accuracy** (WaniKani + BunPro merged)
 - Spot **untracked** curriculum kanji (not in WaniKani) vs **unstudied** WK kanji (no positive SRS yet)
 - Reorder the same corpus by literacy structure, lesson order, or real-world frequency
-- Click any cell to open its [Jisho](https://jisho.org) kanji page
+- Click any cell for meanings, readings, mnemonics, and example words (WaniKani when available; Jisho / BunPro examples as fallbacks), plus a link to Jisho
 
 There is **no user auth in v1** — API keys live in `.env` for a personal / self-hosted install. The UI defaults to **light mode** (toggle in the header).
 
@@ -50,11 +50,11 @@ Bands follow the WaniKani-style stage scale (BunPro stages normalized to 0–9):
 
 ### Accuracy heatmap
 
-Cell color is **review accuracy %** (0–100), not SRS stage:
+Cell color is **review accuracy %** (0–100), not SRS stage. Colors advance in **5% steps**, with RGB interpolation between these anchors:
 
 | Range | Colors |
 |-------|--------|
-| **100% → 50%** | Green → lime → yellow → orange → **red** |
+| **100% → 50%** | Green → lime → yellow → **red** |
 | **50% → 0%** | **Red** → magenta (~25%) → **purple** (~0%) |
 
 Grey cells still mean unstudied / untracked (no accuracy to plot). The percentage in the cell corner is the same value driving the color.

@@ -33,7 +33,9 @@ export async function ensureSchema(databasePath = process.env.DATABASE_PATH || '
       api_order INTEGER,
       srs_stage INTEGER NOT NULL,
       accuracy_pct REAL,
+      meaning_correct INTEGER NOT NULL DEFAULT 0,
       meaning_incorrect INTEGER NOT NULL DEFAULT 0,
+      reading_correct INTEGER NOT NULL DEFAULT 0,
       reading_incorrect INTEGER NOT NULL DEFAULT 0,
       raw_json TEXT,
       synced_at TEXT NOT NULL
@@ -70,6 +72,17 @@ export async function ensureSchema(databasePath = process.env.DATABASE_PATH || '
   }
 
   for (const col of ['subject_id INTEGER', 'wk_level INTEGER', 'api_order INTEGER']) {
+    try {
+      await client.execute(`ALTER TABLE progress_wanikani ADD COLUMN ${col}`)
+    } catch {
+      // column already exists
+    }
+  }
+
+  for (const col of [
+    'meaning_correct INTEGER NOT NULL DEFAULT 0',
+    'reading_correct INTEGER NOT NULL DEFAULT 0'
+  ]) {
     try {
       await client.execute(`ALTER TABLE progress_wanikani ADD COLUMN ${col}`)
     } catch {

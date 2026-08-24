@@ -73,7 +73,9 @@ describe('wanikani adapter parsing', () => {
       apiOrder: 0,
       srsStage: 5,
       accuracyPct: 85,
+      meaningCorrect: 8,
       meaningIncorrect: 2,
+      readingCorrect: 9,
       readingIncorrect: 1
     })
     expect(rows.find(r => r.character === '月')).toMatchObject({
@@ -89,5 +91,37 @@ describe('wanikani adapter parsing', () => {
   it('returns empty array without API key', async () => {
     const { fetchWanikaniKanjiProgress } = await import('../server/adapters/wanikani')
     expect(await fetchWanikaniKanjiProgress('')).toEqual([])
+  })
+
+  it('fetches review stats for one subject id', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      expect(String(url)).toContain('/review_statistics?subject_ids=468')
+      return {
+        ok: true,
+        json: async () => ({
+          pages: { next_url: null },
+          data: [{
+            id: 20,
+            data: {
+              subject_id: 468,
+              meaning_correct: 23,
+              meaning_incorrect: 2,
+              reading_correct: 11,
+              reading_incorrect: 1,
+              percentage_correct: 92
+            }
+          }]
+        })
+      }
+    }))
+
+    const { fetchWanikaniReviewStatsForSubject } = await import('../server/adapters/wanikani')
+    await expect(fetchWanikaniReviewStatsForSubject('fake-key', 468)).resolves.toEqual({
+      meaningCorrect: 23,
+      meaningIncorrect: 2,
+      readingCorrect: 11,
+      readingIncorrect: 1,
+      accuracyPct: 92
+    })
   })
 })

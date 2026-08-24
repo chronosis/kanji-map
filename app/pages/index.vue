@@ -24,6 +24,13 @@ const highlightGrade = ref<string>('all')
 const highlightSrsBand = ref<string>('all')
 const mapFilter = ref<MapFilterMode>('none')
 const gridRef = ref<{ zoomIn: () => void, zoomOut: () => void, resetView: () => void } | null>(null)
+const detailOpen = ref(false)
+const detailCharacter = ref<string | null>(null)
+
+function openKanjiDetail(character: string) {
+  detailCharacter.value = character
+  detailOpen.value = true
+}
 
 const colorModeItems = [
   { label: 'SRS stage', value: 'srs' },
@@ -33,7 +40,9 @@ const colorModeItems = [
 const orderModeItems = [
   { label: 'Jōyō appearance', value: 'joyo' },
   { label: 'WaniKani order', value: 'wk' },
-  { label: 'Usage (frequency)', value: 'usage' }
+  { label: 'SRS stage', value: 'srs' },
+  { label: 'Usage (frequency)', value: 'usage' },
+  { label: 'Accuracy', value: 'accuracy' }
 ]
 
 const columnItems = GRID_COLUMN_OPTIONS.map(n => ({
@@ -235,6 +244,13 @@ watch(orderMode, () => {
       :highlight-grade="gradeFilter"
       :highlight-srs-min="highlightSrsMin"
       :highlight-srs-max="highlightSrsMax"
+      :keyboard-enabled="!detailOpen"
+      @select="openKanjiDetail"
+    />
+
+    <KanjiDetailModal
+      v-model:open="detailOpen"
+      :character="detailCharacter"
     />
   </div>
 </template>

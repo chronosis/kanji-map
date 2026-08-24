@@ -7,7 +7,7 @@ export type SchoolGrade = 1 | 2 | 3 | 4 | 5 | 6
 export type JlptLevel = 'N5' | 'N4' | 'N3' | 'N2' | 'N1'
 
 /** How the grid is ordered. */
-export type OrderMode = 'grade' | 'usage' | 'joyo' | 'wk'
+export type OrderMode = 'grade' | 'usage' | 'joyo' | 'wk' | 'accuracy' | 'srs'
 
 export interface KanjiUnionEntry {
   character: string

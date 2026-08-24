@@ -3,10 +3,14 @@ import {
   cellVisualClass,
   formatAccuracy,
   hasApiSrs,
+  sortableAccuracy,
   isUnstudied,
   isUntracked,
   isOmittedByMapFilter,
   accuracyHeatmapBucket,
+  accuracyHeatmapColor,
+  interpolateAccuracyColor,
+  ACCURACY_HEATMAP_PALETTE,
   accuracyBackground,
   srsBand,
   srsBackground,
@@ -35,21 +39,41 @@ describe('colors', () => {
     expect(formatAccuracy(100, { sources: 1, srsAvg: 3 })).toBe('100%')
   })
 
-  it('maps accuracy heatmap: 100–50% green→red, 50–0% red→magenta→purple', () => {
-    expect(accuracyHeatmapBucket(100)).toBe(9)
-    expect(accuracyHeatmapBucket(90)).toBe(9)
-    expect(accuracyHeatmapBucket(80)).toBe(8)
-    expect(accuracyHeatmapBucket(70)).toBe(7)
-    expect(accuracyHeatmapBucket(60)).toBe(6)
-    expect(accuracyHeatmapBucket(50)).toBe(5)
-    expect(accuracyHeatmapBucket(40)).toBe(4)
-    expect(accuracyHeatmapBucket(25)).toBe(2)
-    expect(accuracyHeatmapBucket(10)).toBe(1)
+  it('treats accuracy as null for sort when SRS is zero', () => {
+    expect(sortableAccuracy(100, 1, 0)).toBeNull()
+    expect(sortableAccuracy(100, 1, 3)).toBe(100)
+  })
+
+  it('maps accuracy heatmap every 5% with interpolated colors', () => {
+    expect(accuracyHeatmapBucket(100)).toBe(20)
+    expect(accuracyHeatmapBucket(99)).toBe(19)
+    expect(accuracyHeatmapBucket(95)).toBe(19)
+    expect(accuracyHeatmapBucket(50)).toBe(10)
+    expect(accuracyHeatmapBucket(49)).toBe(9)
+    expect(accuracyHeatmapBucket(25)).toBe(5)
     expect(accuracyHeatmapBucket(0)).toBe(0)
 
-    expect(accuracyBackground(100)).toBe('km-acc km-acc-9')
-    expect(accuracyBackground(50)).toBe('km-acc km-acc-5')
-    expect(accuracyBackground(25)).toBe('km-acc km-acc-2')
+    // Anchor stops keep their exact hex
+    expect(interpolateAccuracyColor(100)).toBe('#22c55e')
+    expect(interpolateAccuracyColor(50)).toBe('#f87171')
+    expect(interpolateAccuracyColor(25)).toBe('#d946ef')
+    expect(interpolateAccuracyColor(0)).toBe('#7e22ce')
+
+    // Midpoints between anchors are blends (not equal to either end)
+    const mid75 = interpolateAccuracyColor(75)
+    expect(mid75).not.toBe(interpolateAccuracyColor(80))
+    expect(mid75).not.toBe(interpolateAccuracyColor(70))
+    expect(mid75.startsWith('#')).toBe(true)
+    expect(mid75).toBe(accuracyHeatmapColor(75))
+
+    expect(ACCURACY_HEATMAP_PALETTE).toHaveLength(21)
+    expect(ACCURACY_HEATMAP_PALETTE[20]).toBe('#22c55e')
+    expect(ACCURACY_HEATMAP_PALETTE[10]).toBe('#f87171')
+    expect(ACCURACY_HEATMAP_PALETTE[0]).toBe('#7e22ce')
+
+    expect(accuracyBackground(100)).toBe('km-acc km-acc-20')
+    expect(accuracyBackground(50)).toBe('km-acc km-acc-10')
+    expect(accuracyBackground(25)).toBe('km-acc km-acc-5')
     expect(accuracyBackground(0)).toBe('km-acc km-acc-0')
   })
 
