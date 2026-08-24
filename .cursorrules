@@ -1,0 +1,28 @@
+# Cursor Rules for Kanji Map
+
+## Project Context
+
+Personal Nuxt 4 + Nuxt UI app that visualizes kanji mastery from WaniKani and BunPro on a school-curriculum + JLPT character grid.
+
+Before contributing, read `.ai/project-brief.md`, `.ai/architecture.md`, `.ai/tech-stack.md`, `.ai/coding-standards.md`, and `.ai/AI-SETUP-GUIDE.md`.
+
+## Core Principles
+
+1. **Data Integrity** — use MEXT 学年別漢字配当表 + 常用漢字 for literacy; JLPT levels are community-derived and unofficial.
+2. **Secrets stay server-side** — never expose `WANIKANI_API_KEY` or `BUNPRO_FRONTEND_JWT` to the client.
+3. **Type Safety** — TypeScript strict; avoid `any`; Zod for API payloads.
+4. **Idempotent sync** — re-running sync must not duplicate side effects.
+5. **Quality Gates** — lint, test, and typecheck must pass before completion.
+
+## Coding Standards
+
+- Vue: `<script setup lang="ts">`; prefer Nuxt auto-imports.
+- Styling: Tailwind / Nuxt UI.
+- DB: Drizzle ORM + SQLite only; never raw SQL strings for writes.
+- External APIs: encapsulate in `server/adapters/`.
+
+## Prohibited
+
+- No user auth in v1 (keys live in `.env`).
+- Do not hand-edit `drizzle/migrations` — change `drizzle/schema.ts` and generate.
+- Do not call WaniKani or BunPro from the browser.

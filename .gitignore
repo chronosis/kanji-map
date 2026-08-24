@@ -1,0 +1,38 @@
+# Nuxt dev/build outputs
+.output
+.data
+.nuxt
+.nitro
+.cache
+dist
+
+# Node dependencies
+node_modules
+.pnpm-store
+
+# Logs
+logs
+*.log
+
+# Misc
+.DS_Store
+.fleet
+.idea
+
+# Local env files
+.env
+.env.*
+!.env.example
+!sample.env
+
+# SQLite runtime DB (seeded data JSON is committed; live DB is not)
+data/*.sqlite
+data/*.sqlite-*
+data/raw/
+*.sqlite
+*.sqlite-*
+
+# Coverage / test
+coverage
+.vitest
+node_modules

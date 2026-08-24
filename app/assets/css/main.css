@@ -1,0 +1,55 @@
+@import "tailwindcss";
+@import "@nuxt/ui";
+
+html,
+body,
+#__nuxt {
+  height: 100%;
+  overflow: hidden;
+}
+
+@theme static {
+  --font-sans: 'Public Sans', sans-serif;
+
+  --color-green-50: #EFFDF5;
+  --color-green-100: #D9FBE8;
+  --color-green-200: #B3F5D1;
+  --color-green-300: #75EDAE;
+  --color-green-400: #00DC82;
+  --color-green-500: #00C16A;
+  --color-green-600: #00A155;
+  --color-green-700: #007F45;
+  --color-green-800: #016538;
+  --color-green-900: #0A5331;
+  --color-green-950: #052E16;
+}
+
+/* Unstudied — in WK (or not curriculum) but no positive SRS — neutral-400, no blue outline */
+.km-unstudied,
+.km-srs.km-unstudied,
+.km-srs.km-locked {
+  background-color: #a3a3a3; /* neutral-400 */
+}
+
+/* Untracked — MEXT / jōyō not in WaniKani — neutral-500 + light blue outline */
+.km-srs.km-untracked {
+  background-color: #737373; /* neutral-500 */
+  box-shadow: inset 0 0 0 2px #93c5fd; /* blue-300 */
+}
+
+.km-srs.km-apprentice { background-color: #fca5a5; }
+.km-srs.km-guru { background-color: #fbbf24; }
+.km-srs.km-master { background-color: #4ade80; }
+.km-srs.km-enlightened { background-color: #22d3ee; }
+.km-srs.km-burned { background-color: #818cf8; }
+
+.km-acc-0 { background-color: #fecaca; }
+.km-acc-1 { background-color: #fca5a5; }
+.km-acc-2 { background-color: #f87171; }
+.km-acc-3 { background-color: #fb923c; }
+.km-acc-4 { background-color: #fdba74; }
+.km-acc-5 { background-color: #fde047; }
+.km-acc-6 { background-color: #bef264; }
+.km-acc-7 { background-color: #86efac; }
+.km-acc-8 { background-color: #4ade80; }
+.km-acc-9 { background-color: #22c55e; }

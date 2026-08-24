@@ -1,0 +1,143 @@
+import { describe, expect, it } from 'vitest'
+import {
+  assignGridIndices,
+  compareByJoyoAppearance,
+  compareByUsage,
+  compareByWk,
+  compareKanjiEntries,
+  orderKanjiUnion,
+  schoolYearLabel,
+  sortMapCells
+} from '../shared/utils/kanji-order'
+import type { KanjiUnionEntry, MapCell } from '../shared/types/kanji'
+
+function entry(
+  character: string,
+  partial: Partial<KanjiUnionEntry> = {}
+): KanjiUnionEntry {
+  return {
+    character,
+    schoolGrade: null,
+    jlptLevel: null,
+    inJoyoo: true,
+    freqRank: null,
+    strokes: null,
+    ...partial
+  }
+}
+
+function cell(
+  character: string,
+  partial: Partial<MapCell> = {}
+): MapCell {
+  return {
+    ...entry(character),
+    gridIndex: 0,
+    srsAvg: null,
+    accuracyAvg: null,
+    sources: 0,
+    inWanikani: false,
+    wkLevel: null,
+    wkSubjectId: null,
+    wkApiOrder: null,
+    ...partial
+  }
+}
+
+describe('kanji-order', () => {
+  it('orders by grade then JLPT then code point', () => {
+    const sample = [
+      entry('漢', { jlptLevel: 'N1', inJoyoo: true }),
+      entry('一', { schoolGrade: 1, jlptLevel: 'N5' }),
+      entry('字', { schoolGrade: 1, jlptLevel: 'N4' })
+    ]
+    const ordered = orderKanjiUnion(sample, 'grade')
+    expect(ordered.map(o => o.character)).toEqual(['一', '字', '漢'])
+  })
+
+  it('orders by usage frequency', () => {
+    const sample = [
+      entry('漢', { freqRank: 500 }),
+      entry('一', { freqRank: 1 }),
+      entry('稀', { freqRank: null })
+    ]
+    expect(orderKanjiUnion(sample, 'usage').map(o => o.character)).toEqual(['一', '漢', '稀'])
+    expect(compareByUsage(sample[0], sample[1])).toBeGreaterThan(0)
+  })
+
+  it('orders jōyō appearance: joyo first, then grade, then strokes', () => {
+    const sample = [
+      entry('外', { inJoyoo: false, strokes: 1 }),
+      entry('漢', { inJoyoo: true, schoolGrade: null, strokes: 13 }),
+      entry('一', { inJoyoo: true, schoolGrade: 1, strokes: 1 }),
+      entry('二', { inJoyoo: true, schoolGrade: 1, strokes: 2 })
+    ]
+    expect(orderKanjiUnion(sample, 'joyo').map(o => o.character)).toEqual(['一', '二', '漢', '外'])
+    expect(compareByJoyoAppearance(sample[0], sample[2])).toBeGreaterThan(0)
+  })
+
+  it('orders by WaniKani level then API response appearance', () => {
+    const cells = [
+      cell('漢', { wkLevel: 10, wkApiOrder: 200, inWanikani: true }),
+      cell('一', { wkLevel: 1, wkApiOrder: 50, inWanikani: true }),
+      cell('月', { wkLevel: 1, wkApiOrder: 40, inWanikani: true }),
+      cell('稀', { wkLevel: null, wkApiOrder: null, inJoyoo: false, inWanikani: false })
+    ]
+    expect(sortMapCells(cells, 'wk').map(c => c.character)).toEqual(['月', '一', '漢', '稀'])
+    expect(compareByWk(cells[0], cells[1])).toBeGreaterThan(0)
+  })
+
+  it('puts untracked last in WK order with gridIndex +9000', () => {
+    const cells = [
+      cell('未', { inJoyoo: true, schoolGrade: 2, wkLevel: null, sources: 0, inWanikani: false }),
+      cell('日', {
+        inJoyoo: true,
+        schoolGrade: 1,
+        wkLevel: 1,
+        wkApiOrder: 10,
+        sources: 1,
+        inWanikani: true
+      }),
+      cell('外', { inJoyoo: false, wkLevel: null, sources: 0, inWanikani: false }),
+      cell('学', { inJoyoo: true, schoolGrade: null, wkLevel: null, sources: 0, inWanikani: false })
+    ]
+    const sorted = sortMapCells(cells, 'wk')
+    expect(sorted.map(c => c.character)).toEqual(['日', '外', '学', '未'])
+    expect(sorted.find(c => c.character === '日')?.gridIndex).toBe(0)
+    expect(sorted.find(c => c.character === '外')?.gridIndex).toBe(1)
+    expect(sorted.find(c => c.character === '学')?.gridIndex).toBe(9000)
+    expect(sorted.find(c => c.character === '未')?.gridIndex).toBe(9001)
+  })
+
+  it('assigns contiguous grid indices', () => {
+    const indexed = assignGridIndices([
+      entry('二', { schoolGrade: 1, jlptLevel: 'N5' }),
+      entry('一', { schoolGrade: 1, jlptLevel: 'N5' })
+    ])
+    expect(indexed[0].character).toBe('一')
+    expect(indexed[0].gridIndex).toBe(0)
+    expect(indexed[1].gridIndex).toBe(1)
+  })
+
+  it('compare is stable for equal keys via code point', () => {
+    const a = entry('一', { schoolGrade: 1, jlptLevel: 'N5' })
+    const b = entry('七', { schoolGrade: 1, jlptLevel: 'N5' })
+    expect(compareKanjiEntries(a, b)).toBeLessThan(0)
+  })
+
+  it('labels school years as 小N / 中学+', () => {
+    expect(schoolYearLabel(1, true)).toBe('小1')
+    expect(schoolYearLabel(null, true)).toBe('中学+')
+    expect(schoolYearLabel(null, false)).toBe('—')
+  })
+
+  it('sortMapCells reindexes for the UI', () => {
+    const cells = [
+      cell('漢', { freqRank: 10 }),
+      cell('一', { freqRank: 1 })
+    ]
+    const sorted = sortMapCells(cells, 'usage')
+    expect(sorted.map(c => c.character)).toEqual(['一', '漢'])
+    expect(sorted[0].gridIndex).toBe(0)
+  })
+})
