@@ -6,6 +6,8 @@ import {
   isUnstudied,
   isUntracked,
   isOmittedByMapFilter,
+  accuracyHeatmapBucket,
+  accuracyBackground,
   srsBand,
   srsBackground,
   cellBackground
@@ -31,6 +33,24 @@ describe('colors', () => {
     expect(formatAccuracy(100, { sources: 0, srsAvg: null })).toBe('--')
     expect(formatAccuracy(100, { sources: 1, srsAvg: 0 })).toBe('--')
     expect(formatAccuracy(100, { sources: 1, srsAvg: 3 })).toBe('100%')
+  })
+
+  it('maps accuracy heatmap: 100–50% green→red, 50–0% red→magenta→purple', () => {
+    expect(accuracyHeatmapBucket(100)).toBe(9)
+    expect(accuracyHeatmapBucket(90)).toBe(9)
+    expect(accuracyHeatmapBucket(80)).toBe(8)
+    expect(accuracyHeatmapBucket(70)).toBe(7)
+    expect(accuracyHeatmapBucket(60)).toBe(6)
+    expect(accuracyHeatmapBucket(50)).toBe(5)
+    expect(accuracyHeatmapBucket(40)).toBe(4)
+    expect(accuracyHeatmapBucket(25)).toBe(2)
+    expect(accuracyHeatmapBucket(10)).toBe(1)
+    expect(accuracyHeatmapBucket(0)).toBe(0)
+
+    expect(accuracyBackground(100)).toBe('km-acc km-acc-9')
+    expect(accuracyBackground(50)).toBe('km-acc km-acc-5')
+    expect(accuracyBackground(25)).toBe('km-acc km-acc-2')
+    expect(accuracyBackground(0)).toBe('km-acc km-acc-0')
   })
 
   it('maps srs bands', () => {

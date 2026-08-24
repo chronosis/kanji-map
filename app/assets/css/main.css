@@ -43,13 +43,18 @@ body,
 .km-srs.km-enlightened { background-color: #22d3ee; }
 .km-srs.km-burned { background-color: #818cf8; }
 
-.km-acc-0 { background-color: #fecaca; }
-.km-acc-1 { background-color: #fca5a5; }
-.km-acc-2 { background-color: #f87171; }
-.km-acc-3 { background-color: #fb923c; }
-.km-acc-4 { background-color: #fdba74; }
-.km-acc-5 { background-color: #fde047; }
-.km-acc-6 { background-color: #bef264; }
-.km-acc-7 { background-color: #86efac; }
-.km-acc-8 { background-color: #4ade80; }
-.km-acc-9 { background-color: #22c55e; }
+/*
+ * Accuracy heatmap:
+ * - 100%→50% (km-acc-9 … km-acc-5): green → lime → yellow → orange → red
+ * - 50%→0%  (km-acc-5 … km-acc-0): red → magenta → purple
+ */
+.km-acc-9 { background-color: #22c55e; } /* ~100% green */
+.km-acc-8 { background-color: #86efac; } /* light green */
+.km-acc-7 { background-color: #bef264; } /* lime */
+.km-acc-6 { background-color: #fde047; } /* yellow */
+.km-acc-5 { background-color: #f87171; } /* ~50% red */
+.km-acc-4 { background-color: #fb7185; } /* rose */
+.km-acc-3 { background-color: #e879f9; } /* light magenta */
+.km-acc-2 { background-color: #d946ef; } /* ~25% magenta */
+.km-acc-1 { background-color: #a855f7; } /* violet */
+.km-acc-0 { background-color: #7e22ce; } /* ~0% purple */

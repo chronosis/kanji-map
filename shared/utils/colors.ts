@@ -104,8 +104,7 @@ export function cellVisualClass(mode: ColorMode, input: CellVisualInput): string
   if (hasApiSrs(input.sources, input.srsAvg)) {
     if (mode === 'accuracy') {
       if (input.accuracyAvg == null) return 'km-srs km-unstudied'
-      const bucket = Math.min(9, Math.floor(Math.max(0, input.accuracyAvg) / 10))
-      return `km-acc km-acc-${bucket}`
+      return `km-acc km-acc-${accuracyHeatmapBucket(input.accuracyAvg)}`
     }
     return `km-srs km-${srsBand(input.srsAvg)}`
   }
@@ -118,6 +117,22 @@ export function cellVisualClass(mode: ColorMode, input: CellVisualInput): string
   return 'km-srs km-unstudied'
 }
 
+/**
+ * Map accuracy % to heatmap bucket 0–9.
+ *
+ * - **50–100%**: former green→yellow→orange→red ramp, compressed into buckets 5–9
+ * - **0–50%**: red → magenta → purple into buckets 0–4 (50% is red at bucket 5)
+ */
+export function accuracyHeatmapBucket(accuracyAvg: number): number {
+  const a = Math.min(100, Math.max(0, accuracyAvg))
+  if (a >= 50) {
+    const t = (a - 50) / 50
+    return 5 + Math.min(4, Math.floor(t * 5))
+  }
+  const t = a / 50
+  return Math.min(4, Math.floor(t * 5))
+}
+
 /** @deprecated Prefer cellVisualClass — kept for existing tests. */
 export function srsBackground(srsAvg: number | null): string {
   return `km-srs km-${srsBand(srsAvg)}`
@@ -126,8 +141,7 @@ export function srsBackground(srsAvg: number | null): string {
 /** @deprecated Prefer cellVisualClass — kept for existing tests. */
 export function accuracyBackground(accuracyAvg: number | null): string {
   if (accuracyAvg == null) return 'km-unstudied'
-  const bucket = Math.min(9, Math.floor(Math.max(0, accuracyAvg) / 10))
-  return `km-acc km-acc-${bucket}`
+  return `km-acc km-acc-${accuracyHeatmapBucket(accuracyAvg)}`
 }
 
 /** @deprecated Prefer cellVisualClass */

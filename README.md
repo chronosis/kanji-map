@@ -40,6 +40,29 @@ Newspaper / corpus **frequency rank** (lower rank = more common first). Use this
 
 ![Usage frequency ordering](docs/screenshots/order-usage.png)
 
+## Color modes
+
+**Color mode** paints each studied cell from merged WaniKani / BunPro progress. Untracked and unstudied cells stay grey (blue outline = untracked).
+
+### SRS stage (default)
+
+Bands follow the WaniKani-style stage scale (BunPro stages normalized to 0–9): apprentice → guru → master → enlightened → burned.
+
+### Accuracy heatmap
+
+Cell color is **review accuracy %** (0–100), not SRS stage:
+
+| Range | Colors |
+|-------|--------|
+| **100% → 50%** | Green → lime → yellow → orange → **red** |
+| **50% → 0%** | **Red** → magenta (~25%) → **purple** (~0%) |
+
+Grey cells still mean unstudied / untracked (no accuracy to plot). The percentage in the cell corner is the same value driving the color.
+
+![Accuracy heatmap — Jōyō order](docs/screenshots/color-accuracy-joyo.png)
+
+![Accuracy heatmap — WaniKani order](docs/screenshots/color-accuracy-wanikani.png)
+
 ## Prerequisites
 
 - **Node.js** ≥ 24
@@ -141,7 +164,7 @@ Restart `pnpm dev` whenever you change `.env`.
 | Control | Behavior |
 |---------|----------|
 | **Order** | Jōyō appearance (default), WaniKani order, or usage frequency — see [Ordering modes](#ordering-modes) |
-| **Color mode** | SRS stage colors vs accuracy heatmap |
+| **Color mode** | SRS stage (default) or accuracy heatmap — see [Color modes](#color-modes) |
 | **Highlight year / SRS** | Dim cells that do not match (visual only) |
 | **Filters** | **Remove** untracked and/or unstudied cells from the grid |
 | **Columns** | 25–70 (step 5); default 40 |
