@@ -44,14 +44,6 @@ html[data-kanji-font="calligraphic"],
 .km-kanji {
   font-family: var(--km-kanji-font);
   font-feature-settings: "palt" 0;
-  /* Gothic uses bold; Mincho / Calligraphic stay regular. */
-  font-weight: 700;
-}
-
-html[data-kanji-font="mincho"] .km-kanji,
-html[data-kanji-font="calligraphic"] .km-kanji,
-[data-kanji-font="mincho"] .km-kanji,
-[data-kanji-font="calligraphic"] .km-kanji {
   font-weight: 400;
 }
 

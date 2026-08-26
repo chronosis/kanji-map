@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { MapCell } from '../shared/types/kanji'
 import {
+  buildCollapsibleHighlightMenuItems,
   buildHighlightMenuItems,
   filterHighlightSelectionForSources,
   hasActiveMapHighlight,
@@ -191,5 +192,26 @@ describe('map-highlight', () => {
       'srs:1-4',
       'wk:3'
     ])
+  })
+
+  it('builds collapsible menu sections from collapsed state', () => {
+    const expanded = buildCollapsibleHighlightMenuItems({
+      includeSrs: true,
+      includeWkLevels: true,
+      collapsed: { year: false, srs: false, wk: false }
+    })
+    expect(expanded[0]).toHaveLength(8) // header + 7 years
+    expect(expanded[2]).toHaveLength(61) // header + 60 levels
+
+    const wkCollapsed = buildCollapsibleHighlightMenuItems({
+      includeWkLevels: true,
+      collapsed: { year: false, srs: false, wk: true }
+    })
+    expect(wkCollapsed[1]).toHaveLength(1)
+    expect(wkCollapsed[1]?.[0]).toMatchObject({
+      isCategoryHeader: true,
+      label: 'WaniKani level',
+      icon: 'i-lucide-chevron-right'
+    })
   })
 })

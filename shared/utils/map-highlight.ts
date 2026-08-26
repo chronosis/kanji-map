@@ -40,8 +40,59 @@ export interface HighlightMenuGroup {
   label: string
 }
 
-/** Nuxt UI SelectMenu nested group: label row + options. */
-export type HighlightMenuSection = Array<HighlightMenuGroup | HighlightMenuItem>
+export type HighlightCategoryId = 'year' | 'srs' | 'wk'
+
+export const HIGHLIGHT_CATEGORY_LABELS: Readonly<Record<HighlightCategoryId, string>> = {
+  year: 'School year',
+  srs: 'SRS stage',
+  wk: 'WaniKani level'
+}
+
+export type HighlightCollapsedCategories = Record<HighlightCategoryId, boolean>
+
+export function defaultHighlightCollapsedCategories(): HighlightCollapsedCategories {
+  return { year: false, srs: false, wk: true }
+}
+
+/** Clickable category header inside the Highlight select menu. */
+export interface HighlightCategoryHeaderItem {
+  label: string
+  value: `__header:${HighlightCategoryId}`
+  icon: string
+  category: HighlightCategoryId
+  isCategoryHeader: true
+}
+
+/** Nuxt UI SelectMenu nested group: header / label row + options. */
+export type HighlightMenuSection = Array<
+  HighlightMenuGroup | HighlightMenuItem | HighlightCategoryHeaderItem
+>
+
+export function isHighlightCategoryHeaderValue(
+  value: string
+): value is HighlightCategoryHeaderItem['value'] {
+  return value === '__header:year'
+    || value === '__header:srs'
+    || value === '__header:wk'
+}
+
+export function parseHighlightCategoryHeaderValue(value: string): HighlightCategoryId | null {
+  if (!isHighlightCategoryHeaderValue(value)) return null
+  return value.slice('__header:'.length) as HighlightCategoryId
+}
+
+export function highlightCategoryHeaderItem(
+  category: HighlightCategoryId,
+  collapsed: boolean
+): HighlightCategoryHeaderItem {
+  return {
+    label: HIGHLIGHT_CATEGORY_LABELS[category],
+    value: `__header:${category}`,
+    icon: collapsed ? 'i-lucide-chevron-right' : 'i-lucide-chevron-down',
+    category,
+    isCategoryHeader: true
+  }
+}
 
 export const HIGHLIGHT_YEAR_OPTIONS: readonly HighlightMenuItem[] = [
   { label: '小1', value: 'year:1' },
@@ -76,22 +127,39 @@ export function buildHighlightMenuItems(options?: {
   includeSrs?: boolean
   includeWkLevels?: boolean
 }): HighlightMenuSection[] {
+  return buildCollapsibleHighlightMenuItems({
+    ...options,
+    collapsed: { year: false, srs: false, wk: false }
+  }).map(section => section.map((item) => {
+    if ('isCategoryHeader' in item && item.isCategoryHeader) {
+      return { type: 'label' as const, label: item.label }
+    }
+    return item
+  })) as HighlightMenuSection[]
+}
+
+/** Grouped items with collapsible category headers (used by HighlightSelectMenu). */
+export function buildCollapsibleHighlightMenuItems(options: {
+  includeSrs?: boolean
+  includeWkLevels?: boolean
+  collapsed: HighlightCollapsedCategories
+}): HighlightMenuSection[] {
   const sections: HighlightMenuSection[] = [
     [
-      { type: 'label', label: 'School year' },
-      ...HIGHLIGHT_YEAR_OPTIONS
+      highlightCategoryHeaderItem('year', options.collapsed.year),
+      ...(options.collapsed.year ? [] : HIGHLIGHT_YEAR_OPTIONS)
     ]
   ]
-  if (options?.includeSrs === true) {
+  if (options.includeSrs === true) {
     sections.push([
-      { type: 'label', label: 'SRS stage' },
-      ...HIGHLIGHT_SRS_OPTIONS
+      highlightCategoryHeaderItem('srs', options.collapsed.srs),
+      ...(options.collapsed.srs ? [] : HIGHLIGHT_SRS_OPTIONS)
     ])
   }
-  if (options?.includeWkLevels === true) {
+  if (options.includeWkLevels === true) {
     sections.push([
-      { type: 'label', label: 'WaniKani level' },
-      ...HIGHLIGHT_WK_LEVEL_OPTIONS
+      highlightCategoryHeaderItem('wk', options.collapsed.wk),
+      ...(options.collapsed.wk ? [] : HIGHLIGHT_WK_LEVEL_OPTIONS)
     ])
   }
   return sections
@@ -182,6 +250,7 @@ export function filterHighlightSelectionForSources(
   wanikaniConfigured: boolean
 ): HighlightOptionValue[] {
   return selected.filter((value): value is HighlightOptionValue => {
+    if (isHighlightCategoryHeaderValue(value)) return false
     if (!wanikaniConfigured && (value.startsWith('srs:') || value.startsWith('wk:'))) {
       return false
     }

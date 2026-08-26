@@ -2,7 +2,6 @@
 import type { ColorMode, MapCell, MapFilterMode, OrderMode } from '../../shared/types/kanji'
 import { isOmittedByMapFilter } from '../../shared/utils/colors'
 import {
-  buildHighlightMenuItems,
   filterHighlightSelectionForSources,
   highlightFiltersFromSelection,
   isMapCellDimmed,
@@ -69,11 +68,6 @@ function openKanjiDetail(character: string) {
 
 const colorModeItems = computed(() => colorModeItemsForSources(wanikaniConfigured.value))
 const orderModeItems = computed(() => orderModeItemsForSources(wanikaniConfigured.value))
-
-const highlightItems = computed(() => buildHighlightMenuItems({
-  includeSrs: wanikaniConfigured.value,
-  includeWkLevels: wanikaniConfigured.value
-}))
 
 watch(
   wanikaniConfigured,
@@ -200,14 +194,10 @@ watch(mapFilter, () => {
         </UFormField>
 
         <UFormField label="Highlight">
-          <USelectMenu
+          <HighlightSelectMenu
             v-model="highlightSelection"
-            multiple
-            by="value"
-            :items="highlightItems"
-            :search-input="{ placeholder: 'Filter highlights…' }"
-            placeholder="None"
-            class="w-72"
+            :include-srs="wanikaniConfigured"
+            :include-wk-levels="wanikaniConfigured"
           />
         </UFormField>
 
