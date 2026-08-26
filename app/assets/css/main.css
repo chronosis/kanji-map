@@ -55,6 +55,12 @@ html[data-kanji-font="calligraphic"] .km-kanji,
   font-weight: 400;
 }
 
+/* Header logo — always Mincho regular, independent of map font setting. */
+.km-logo-kanji {
+  font-family: "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  font-weight: 400;
+}
+
 /* Unstudied — in WK (or not curriculum) but no positive SRS — neutral-400, no blue outline */
 .km-unstudied,
 .km-srs.km-unstudied,

@@ -15,11 +15,10 @@
     />
     <text
       x="16"
-      y="21"
+      y="22"
       text-anchor="middle"
-      class="fill-white"
-      font-size="14"
-      font-weight="700"
+      class="fill-white km-logo-kanji"
+      font-size="16"
     >
       漢
     </text>
