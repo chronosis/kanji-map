@@ -4,7 +4,9 @@ import {
   expandReadingVariants,
   isKanaOnlyQuery,
   normalizeReadingsList,
+  readingFullForm,
   readingStem,
+  readingStemSet,
   readingsMatchQuery,
   toHiragana
 } from '../shared/utils/readings'
@@ -52,17 +54,35 @@ describe('readings', () => {
     expect(countDistinctReadingStems([])).toBe(0)
   })
 
+  it('dedupes stems across separate data sources via one Set', () => {
+    const kanjidic = ['ご', 'かた.る', 'かた.らう']
+    const wkDump = ['ご', '!かた']
+    const liveWk = ['ゴ', 'かた']
+    expect(countDistinctReadingStems(kanjidic, wkDump, liveWk)).toBe(2)
+    expect(readingStemSet(kanjidic, wkDump, liveWk)).toEqual(new Set(['ご', 'かた']))
+  })
+
+  it('merges alternate okurigana splits of the same reading', () => {
+    expect(readingFullForm('おこ.なう')).toBe('おこなう')
+    expect(readingFullForm('おこな.う')).toBe('おこなう')
+    // おこ.なう / おこな.う → one stem; -いき / -ゆき covered by い / ゆ
+    expect(countDistinctReadingStems(
+      ['こう', 'ぎょう', 'あん', 'い.く', '-いき', 'ゆ.く', '-ゆき', 'おこな.う', 'おこ.なう'],
+      ['こう', 'ぎょう', '!い', '!おこな', '!ゆ']
+    )).toBe(6)
+  })
+
   it('collapses 生-style Kanjidic+WK variants to stems', () => {
-    const raw = [
+    const kanjidic = [
       'せい', 'しょう',
       'い.きる', 'い.かす', 'い.ける',
       'う.まれる', 'うま.れる', 'う.まれ', 'うまれ', 'う.む',
       'お.う', 'は.える', 'は.やす',
-      'き', 'なま', 'なま-', 'な.る', 'な.す', 'む.す', '-う',
-      '!い', '!なま', '!う', '!は', '!き'
+      'き', 'なま', 'なま-', 'な.る', 'な.す', 'む.す', '-う'
     ]
-    // on: せい/しょう; kun stems: い/う/うま/うまれ/お/は/き/なま/な/む
-    expect(countDistinctReadingStems(raw)).toBe(12)
+    const wk = ['!い', '!なま', '!う', '!は', '!き', 'せい', 'しょう']
+    // on: せい/しょう; kun: い/う/うま/うまれ/お/は/き/なま/な/む
+    expect(countDistinctReadingStems(kanjidic, wk)).toBe(12)
     expect(readingStem('い.きる')).toBe('い')
     expect(readingStem('なま-')).toBe('なま')
     expect(readingStem('-う')).toBe('う')

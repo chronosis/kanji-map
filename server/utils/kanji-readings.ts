@@ -17,14 +17,26 @@ export interface KanjidicReadingIndex {
   searchReadings: string[]
   /** Distinct on/kun reading stems (okurigana collapsed; nanori excluded). */
   readingCount: number
-  /** Raw on/kun readings used for stem counting (no nanori). */
+  /** Kanjidic on/kun readings (source A for stem counting). */
+  kanjidicReadings: string[]
+  /** WK on/kun readings embedded in the joyo dump (source B). */
+  wkDumpReadings: string[]
+  /**
+   * All on/kun raws from both dump sources (search / legacy merge helpers).
+   * Prefer {@link kanjidicReadings} + {@link wkDumpReadings} for counting.
+   */
   rawReadings: string[]
 }
 
-function rawReadingsFromEntry(info: KanjidicEntry): string[] {
+function kanjidicReadingsFromEntry(info: KanjidicEntry): string[] {
   return [
     ...(info.readings_on ?? []),
-    ...(info.readings_kun ?? []),
+    ...(info.readings_kun ?? [])
+  ]
+}
+
+function wkDumpReadingsFromEntry(info: KanjidicEntry): string[] {
+  return [
     ...(info.wk_readings_on ?? []),
     ...(info.wk_readings_kun ?? [])
   ]
@@ -38,11 +50,20 @@ export function loadKanjidicReadingIndex(
 
   const source = JSON.parse(readFileSync(joyoPath, 'utf8')) as Record<string, KanjidicEntry>
   for (const [character, info] of Object.entries(source)) {
-    const rawReadings = rawReadingsFromEntry(info)
+    const kanjidicReadings = kanjidicReadingsFromEntry(info)
+    const wkDumpReadings = wkDumpReadingsFromEntry(info)
+    const rawReadings = [...kanjidicReadings, ...wkDumpReadings]
     const searchReadings = normalizeReadingsList(rawReadings)
-    const readingCount = countDistinctReadingStems(rawReadings)
+    // One Set across Kanjidic + embedded WK dump — never sum per-source sizes.
+    const readingCount = countDistinctReadingStems(kanjidicReadings, wkDumpReadings)
     if (searchReadings.length || readingCount > 0) {
-      map.set(character, { searchReadings, readingCount, rawReadings })
+      map.set(character, {
+        searchReadings,
+        readingCount,
+        kanjidicReadings,
+        wkDumpReadings,
+        rawReadings
+      })
     }
   }
   return map

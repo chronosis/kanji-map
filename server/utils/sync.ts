@@ -55,11 +55,18 @@ async function ensureKanjiReadings(db: ReturnType<typeof getDb>) {
   const expectedSeiCount = kanjidic.get('生')?.readingCount ?? 0
   const countsAreCurrent = expectedSeiCount > 0
     && (seiProbe[0]?.readingCount ?? 0) === expectedSeiCount
+  // Also refresh when 行 lost hyphen-suffix / okurigana-split double-counts (was 9).
+  const gyouProbe = await db.select({
+    readingCount: kanjiRef.readingCount
+  }).from(kanjiRef).where(eq(kanjiRef.character, '行')).limit(1)
+  const expectedGyouCount = kanjidic.get('行')?.readingCount ?? 0
+  const gyouCountsAreCurrent = expectedGyouCount > 0
+    && (gyouProbe[0]?.readingCount ?? 0) === expectedGyouCount
   const expectedSeiNanori = nanoriByChar['生'] ?? []
   const nanoriAreCurrent = expectedSeiNanori.length === 0
     || parseJsonStringArray(seiProbe[0]?.nanoriJson).length > 0
 
-  if (hasSearchReadings && countsAreCurrent && nanoriAreCurrent) return
+  if (hasSearchReadings && countsAreCurrent && gyouCountsAreCurrent && nanoriAreCurrent) return
 
   const refs = await db.select({
     character: kanjiRef.character,
@@ -172,11 +179,12 @@ async function applyWanikaniCatalog(
         ...nanori,
         ...(wk?.readings ?? [])
       ])
-      // Stem count: Kanjidic on/kun + WK on/kun only (never nanori).
-      const readingCount = countDistinctReadingStems([
-        ...(index?.rawReadings ?? []),
-        ...(wk?.onKunReadings ?? [])
-      ])
+      // Stem count: one Set across Kanjidic + joyo WK dump + live WK on/kun (never nanori).
+      const readingCount = countDistinctReadingStems(
+        index?.kanjidicReadings ?? [],
+        index?.wkDumpReadings ?? [],
+        wk?.onKunReadings ?? []
+      )
       await tx.update(kanjiRef).set({
         inWanikani: Boolean(wk),
         wkLevel: wk?.level ?? null,

@@ -87,19 +87,78 @@ export function readingStem(raw: string): string | null {
 }
 
 /**
- * Count distinct on/kun reading stems (okurigana variants collapsed).
- * Callers must omit nanori from `raws`.
+ * Full kana form with emphasis / boundary markers / okurigana dots removed.
+ * Used to merge alternate okurigana splits (`おこ.なう` / `おこな.う`).
  */
-export function countDistinctReadingStems(raws: readonly string[]): number {
-  const set = new Set<string>()
-  for (const raw of raws) {
-    const stem = readingStem(raw)
-    if (stem) set.add(stem)
+export function readingFullForm(raw: string): string | null {
+  let cleaned = raw.replace(/[!！]/g, '').trim()
+  if (!cleaned) return null
+  cleaned = toHiragana(cleaned)
+  cleaned = cleaned.replace(/^-+/u, '').replace(/-+$/u, '').replace(/\./g, '')
+  return cleaned || null
+}
+
+function isLeadingHyphenSuffixForm(raw: string): boolean {
+  const trimmed = raw.replace(/[!！]/g, '').trim()
+  return /^-+/u.test(trimmed) && !trimmed.includes('.')
+}
+
+/**
+ * Build a deduped stem set from one or more data sources (Kanjidic, WK dump, live WK, …).
+ * All sources feed the same Set so overlapping readings are counted once.
+ */
+export function readingStemSet(
+  ...sources: Array<readonly string[] | null | undefined>
+): Set<string> {
+  /** fullForm → longest stem among alternate okurigana splits of that reading */
+  const stemByFull = new Map<string, string>()
+  const hyphenSuffixStems: string[] = []
+
+  for (const source of sources) {
+    if (!source) continue
+    for (const raw of source) {
+      const stem = readingStem(raw)
+      if (!stem) continue
+
+      if (isLeadingHyphenSuffixForm(raw)) {
+        hyphenSuffixStems.push(stem)
+        continue
+      }
+
+      const full = readingFullForm(raw)
+      if (!full) continue
+      const prev = stemByFull.get(full)
+      if (!prev || stem.length > prev.length) {
+        stemByFull.set(full, stem)
+      }
+    }
   }
-  return set.size
+
+  const set = new Set<string>(stemByFull.values())
+
+  // `-いき` when `い.く` already contributed `い` — do not count as a second reading.
+  for (const stem of hyphenSuffixStems) {
+    const covered = [...set].some(primary => stem.startsWith(primary) && stem.length > primary.length)
+    if (!covered) set.add(stem)
+  }
+
+  return set
+}
+
+/**
+ * Count distinct on/kun reading stems across any number of sources.
+ * Pass each source as its own array; they are merged into one Set.
+ * Callers must omit nanori.
+ */
+export function countDistinctReadingStems(
+  ...sources: Array<readonly string[] | null | undefined>
+): number {
+  return readingStemSet(...sources).size
 }
 
 /** @deprecated Prefer {@link countDistinctReadingStems}. */
-export function countDistinctRawReadings(raws: readonly string[]): number {
-  return countDistinctReadingStems(raws)
+export function countDistinctRawReadings(
+  ...sources: Array<readonly string[] | null | undefined>
+): number {
+  return countDistinctReadingStems(...sources)
 }
