@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm'
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import {
   kanjiRef,
@@ -8,13 +8,21 @@ import {
   progressWanikani
 } from '../../drizzle/schema'
 import { SOURCE_BUNPRO, SOURCE_WANIKANI } from '../../shared/types/kanji'
+import type { JishoKanjiMeta } from '../adapters/jisho-kanji'
 import type { JlptLevel, KanjiUnionEntry, MapCell, SchoolGrade } from '../../shared/types/kanji'
 import { assignGridIndices } from '../../shared/utils/kanji-order'
+import { parseJsonStringArray, stringifyJsonStringArray } from '../../shared/utils/json-arrays'
 import { mergeProgress } from '../../shared/utils/merge-progress'
 import { fetchBunproKanjiProgress } from '../adapters/bunpro'
 import { fetchWanikaniKanjiProgress } from '../adapters/wanikani'
 import { getDb } from './db'
 import { ensureSchema } from './ensure-schema'
+
+function loadJishoMeta(): Record<string, JishoKanjiMeta> {
+  const metaPath = resolve('data/kanji-jisho-meta.json')
+  if (!existsSync(metaPath)) return {}
+  return JSON.parse(readFileSync(metaPath, 'utf8')) as Record<string, JishoKanjiMeta>
+}
 
 export async function ensureSeeded(databasePath: string) {
   await ensureSchema(databasePath)
@@ -24,20 +32,27 @@ export async function ensureSeeded(databasePath: string) {
 
   const raw = JSON.parse(readFileSync(resolve('data/kanji-union.json'), 'utf8')) as KanjiUnionEntry[]
   const rows = assignGridIndices(raw)
+  const jishoMeta = loadJishoMeta()
   const chunkSize = 200
   for (let i = 0; i < rows.length; i += chunkSize) {
-    const chunk = rows.slice(i, i + chunkSize).map(row => ({
-      character: row.character,
-      schoolGrade: row.schoolGrade,
-      jlptLevel: row.jlptLevel,
-      inJoyoo: row.inJoyoo,
-      freqRank: row.freqRank ?? null,
-      strokes: row.strokes ?? null,
-      gridIndex: row.gridIndex,
-      inWanikani: false,
-      wkLevel: null,
-      wkApiOrder: null
-    }))
+    const chunk = rows.slice(i, i + chunkSize).map((row) => {
+      const meta = jishoMeta[row.character]
+      return {
+        character: row.character,
+        schoolGrade: row.schoolGrade,
+        jlptLevel: row.jlptLevel,
+        inJoyoo: row.inJoyoo,
+        freqRank: row.freqRank ?? null,
+        strokes: row.strokes ?? null,
+        gridIndex: row.gridIndex,
+        inWanikani: false,
+        wkLevel: null,
+        wkApiOrder: null,
+        radicalSymbol: meta?.radicalSymbol ?? null,
+        radicalFormsJson: stringifyJsonStringArray(meta?.radicalForms ?? []),
+        partsJson: stringifyJsonStringArray(meta?.parts ?? [])
+      }
+    })
     await db.insert(kanjiRef).values(chunk)
   }
 }
@@ -242,7 +257,10 @@ export async function getMapCells(): Promise<MapCell[]> {
         inWanikani,
         wkLevel: ref.wkLevel ?? null,
         wkSubjectId: wk?.subjectId ?? null,
-        wkApiOrder: ref.wkApiOrder ?? null
+        wkApiOrder: ref.wkApiOrder ?? null,
+        radicalSymbol: ref.radicalSymbol ?? null,
+        radicalForms: parseJsonStringArray(ref.radicalFormsJson),
+        parts: parseJsonStringArray(ref.partsJson)
       }
     })
 }

@@ -276,71 +276,71 @@ function wordSegments(word: string, kanji: string | null): WordSegment[] {
                 v-if="detail.wanikani"
                 class="min-w-0 flex-1 space-y-3"
               >
-              <h2 class="text-sm font-semibold text-highlighted">
-                WaniKani
-              </h2>
+                <h2 class="text-sm font-semibold text-highlighted">
+                  WaniKani
+                </h2>
 
-              <div
-                v-if="readingGroups(detail).length"
-                class="space-y-1"
-              >
-                <h3 class="text-xs font-medium uppercase tracking-wide text-muted">
-                  Readings
-                </h3>
-                <p
-                  v-for="group in readingGroups(detail)"
-                  :key="group.label"
-                  class="text-sm"
+                <div
+                  v-if="readingGroups(detail).length"
+                  class="space-y-1"
                 >
-                  <span class="text-muted">{{ group.label }}: </span>
-                  <template
-                    v-for="(reading, readingIdx) in group.readings"
-                    :key="`${group.label}-${reading.reading}-${readingIdx}`"
+                  <h3 class="text-xs font-medium uppercase tracking-wide text-muted">
+                    Readings
+                  </h3>
+                  <p
+                    v-for="group in readingGroups(detail)"
+                    :key="group.label"
+                    class="text-sm"
                   >
-                    <span v-if="readingIdx > 0"> · </span>
-                    <span :class="reading.primary ? 'font-bold' : undefined">{{ reading.reading }}</span>
-                  </template>
-                </p>
-              </div>
-
-              <div
-                v-if="detail.wanikani.components.length"
-                class="space-y-1"
-              >
-                <h3 class="text-xs font-medium uppercase tracking-wide text-muted">
-                  Radicals
-                </h3>
-                <div class="flex flex-wrap gap-2">
-                  <span
-                    v-for="comp in detail.wanikani.components"
-                    :key="comp.subjectId"
-                    class="inline-flex items-center gap-1 rounded-md bg-elevated px-2 py-1 text-sm"
-                  >
-                    <span class="font-semibold">{{ comp.characters ?? '?' }}</span>
-                    <span
-                      v-if="comp.meaning"
-                      class="text-muted"
-                    >{{ comp.meaning }}</span>
-                  </span>
+                    <span class="text-muted">{{ group.label }}: </span>
+                    <template
+                      v-for="(reading, readingIdx) in group.readings"
+                      :key="`${group.label}-${reading.reading}-${readingIdx}`"
+                    >
+                      <span v-if="readingIdx > 0"> · </span>
+                      <span :class="reading.primary ? 'font-bold' : undefined">{{ reading.reading }}</span>
+                    </template>
+                  </p>
                 </div>
-              </div>
 
-              <div
-                v-if="detail.wanikani.visuallySimilar.length"
-                class="text-sm text-muted"
-              >
-                Visually similar:
-                {{ detail.wanikani.visuallySimilar.join(' · ') }}
-              </div>
+                <div
+                  v-if="detail.wanikani.components.length"
+                  class="space-y-1"
+                >
+                  <h3 class="text-xs font-medium uppercase tracking-wide text-muted">
+                    Radicals
+                  </h3>
+                  <div class="flex flex-wrap gap-2">
+                    <span
+                      v-for="comp in detail.wanikani.components"
+                      :key="comp.subjectId"
+                      class="inline-flex items-center gap-1 rounded-md bg-elevated px-2 py-1 text-sm"
+                    >
+                      <span class="font-semibold">{{ comp.characters ?? '?' }}</span>
+                      <span
+                        v-if="comp.meaning"
+                        class="text-muted"
+                      >{{ comp.meaning }}</span>
+                    </span>
+                  </div>
+                </div>
 
-              <p
-                v-if="detail.local && hasWkReviewStats(detail.local)"
-                class="text-xs text-muted"
-              >
-                WK reviews — meaning {{ detail.local.meaningIncorrect ?? 0 }} wrong of
-                {{ wkMeaningAttempts(detail.local) }}, reading {{ detail.local.readingIncorrect ?? 0 }} wrong of
-                {{ wkReadingAttempts(detail.local) }}
-              </p>
+                <div
+                  v-if="detail.wanikani.visuallySimilar.length"
+                  class="text-sm text-muted"
+                >
+                  Visually similar:
+                  {{ detail.wanikani.visuallySimilar.join(' · ') }}
+                </div>
+
+                <p
+                  v-if="detail.local && hasWkReviewStats(detail.local)"
+                  class="text-xs text-muted"
+                >
+                  WK reviews — meaning {{ detail.local.meaningIncorrect ?? 0 }} wrong of
+                  {{ wkMeaningAttempts(detail.local) }}, reading {{ detail.local.readingIncorrect ?? 0 }} wrong of
+                  {{ wkReadingAttempts(detail.local) }}
+                </p>
               </section>
 
               <aside

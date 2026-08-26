@@ -75,10 +75,12 @@ export function isUnstudied(input: CellVisualInput): boolean {
  * Modes name the categories to hide (not highlight).
  */
 export function isOmittedByMapFilter(
-  mode: 'none' | 'untracked' | 'untracked-unstudied',
-  input: CellVisualInput
+  mode: 'none' | 'untracked' | 'untracked-unstudied' | 'unhighlighted',
+  input: CellVisualInput,
+  options?: { dimmed?: boolean }
 ): boolean {
   if (mode === 'none') return false
+  if (mode === 'unhighlighted') return options?.dimmed === true
   if (mode === 'untracked') return isUntracked(input)
   return isUntracked(input) || isUnstudied(input)
 }
@@ -127,7 +129,7 @@ export function cellVisualClass(mode: ColorMode, input: CellVisualInput): string
   return 'km-srs km-unstudied'
 }
 
-/** Anchor colors at the named accuracy levels (interpolated every 5% between these). */
+/** Anchor colors at the named accuracy levels (interpolated every 3% between these). */
 export const ACCURACY_COLOR_STOPS: ReadonlyArray<{ pct: number, hex: string }> = [
   { pct: 100, hex: '#22c55e' }, // green
   { pct: 80, hex: '#86efac' }, // light green
@@ -140,9 +142,9 @@ export const ACCURACY_COLOR_STOPS: ReadonlyArray<{ pct: number, hex: string }> =
   { pct: 0, hex: '#7e22ce' } // purple
 ]
 
-/** 5% steps → buckets 0 (0%) … 20 (100%). */
-export const ACCURACY_HEATMAP_STEP_PCT = 5
-export const ACCURACY_HEATMAP_MAX_BUCKET = 20
+/** 3% steps → buckets 0 (0%) … 33 (100%). */
+export const ACCURACY_HEATMAP_STEP_PCT = 3
+export const ACCURACY_HEATMAP_MAX_BUCKET = 33
 
 function parseHex(hex: string): [number, number, number] {
   const h = hex.replace('#', '')
@@ -184,23 +186,27 @@ export function interpolateAccuracyColor(accuracyPct: number): string {
 }
 
 /**
- * Map accuracy % to a 5% heatmap bucket (0–20).
- * Bucket n covers roughly [n×5%, n×5%+5); 100% → 20.
+ * Map accuracy % to a 3% heatmap bucket (0–33).
+ * Bucket n covers roughly [n×3%, n×3%+3); 100% → 33.
  */
 export function accuracyHeatmapBucket(accuracyAvg: number): number {
   const a = Math.min(100, Math.max(0, accuracyAvg))
   return Math.min(ACCURACY_HEATMAP_MAX_BUCKET, Math.floor(a / ACCURACY_HEATMAP_STEP_PCT))
 }
 
-/** Hex for the 5% bucket containing this accuracy. */
+/** Hex for the 3% bucket containing this accuracy. */
 export function accuracyHeatmapColor(accuracyAvg: number): string {
   return ACCURACY_HEATMAP_PALETTE[accuracyHeatmapBucket(accuracyAvg)]!
 }
 
-/** Precomputed palette: index 0 = 0%, index 20 = 100%. */
+/** Precomputed palette: index 0 = 0%, index 33 = 100%. */
 export const ACCURACY_HEATMAP_PALETTE: readonly string[] = Array.from(
   { length: ACCURACY_HEATMAP_MAX_BUCKET + 1 },
-  (_, bucket) => interpolateAccuracyColor(bucket * ACCURACY_HEATMAP_STEP_PCT)
+  (_, bucket) => interpolateAccuracyColor(
+    bucket === ACCURACY_HEATMAP_MAX_BUCKET
+      ? 100
+      : bucket * ACCURACY_HEATMAP_STEP_PCT
+  )
 )
 
 /** @deprecated Prefer cellVisualClass — kept for existing tests. */

@@ -2,6 +2,10 @@
 import type { ColorMode, MapCell, MapFilterMode, OrderMode } from '../../shared/types/kanji'
 import { isOmittedByMapFilter } from '../../shared/utils/colors'
 import {
+  isMapCellDimmed,
+  type MapHighlightFilters
+} from '../../shared/utils/map-highlight'
+import {
   DEFAULT_GRID_COLUMNS,
   GRID_COLUMN_OPTIONS,
   isGridColumnCount,
@@ -23,6 +27,7 @@ const columnCount = ref<GridColumnCount>(DEFAULT_GRID_COLUMNS)
 const highlightGrade = ref<string>('all')
 const highlightSrsBand = ref<string>('all')
 const mapFilter = ref<MapFilterMode>('none')
+const kanjiSearch = ref('')
 const gridRef = ref<{ zoomIn: () => void, zoomOut: () => void, resetView: () => void } | null>(null)
 const detailOpen = ref(false)
 const detailCharacter = ref<string | null>(null)
@@ -82,7 +87,8 @@ const srsBandItems = [
 const mapFilterItems = [
   { label: 'None', value: 'none' },
   { label: 'Untracked', value: 'untracked' },
-  { label: 'Untracked & Unstudied', value: 'untracked-unstudied' }
+  { label: 'Untracked & Unstudied', value: 'untracked-unstudied' },
+  { label: 'Unhighlighted', value: 'unhighlighted' }
 ]
 
 const gradeFilter = computed((): number | 'jh' | null => {
@@ -103,6 +109,13 @@ const highlightSrsMax = computed(() => {
   return Number(highlightSrsBand.value.split('-')[1])
 })
 
+const highlightFilters = computed((): MapHighlightFilters => ({
+  highlightGrade: gradeFilter.value,
+  highlightSrsMin: highlightSrsMin.value,
+  highlightSrsMax: highlightSrsMax.value,
+  searchQuery: kanjiSearch.value
+}))
+
 function cellFilterInput(cell: MapCell) {
   return {
     srsAvg: cell.srsAvg,
@@ -116,9 +129,11 @@ function cellFilterInput(cell: MapCell) {
 
 const orderedCells = computed(() => {
   if (!data.value?.cells) return []
-  const filtered = data.value.cells.filter(
-    cell => !isOmittedByMapFilter(mapFilter.value, cellFilterInput(cell))
-  )
+  const filters = highlightFilters.value
+  const filtered = data.value.cells.filter((cell) => {
+    const dimmed = isMapCellDimmed(cell, filters)
+    return !isOmittedByMapFilter(mapFilter.value, cellFilterInput(cell), { dimmed })
+  })
   return sortMapCells(filtered, orderMode.value)
 })
 
@@ -198,14 +213,28 @@ watch(orderMode, () => {
         </div>
       </div>
 
-      <UFormField label="Columns">
-        <USelect
-          v-model="columnCountSelect"
-          :items="columnItems"
-          value-key="value"
-          class="w-24"
-        />
-      </UFormField>
+      <div class="flex flex-wrap items-end gap-3">
+        <UFormField label="Search">
+          <UInput
+            v-model="kanjiSearch"
+            name="kanjiSearchQuery"
+            placeholder="Radical or kanji…"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+            class="w-36 font-medium"
+          />
+        </UFormField>
+
+        <UFormField label="Columns">
+          <USelect
+            v-model="columnCountSelect"
+            :items="columnItems"
+            value-key="value"
+            class="w-24"
+          />
+        </UFormField>
+      </div>
     </div>
 
     <p class="shrink-0 text-xs text-muted">
@@ -241,9 +270,7 @@ watch(orderMode, () => {
       class="min-h-0 flex-1"
       :cells="orderedCells"
       :color-mode="colorMode"
-      :highlight-grade="gradeFilter"
-      :highlight-srs-min="highlightSrsMin"
-      :highlight-srs-max="highlightSrsMax"
+      :highlight-filters="highlightFilters"
       :keyboard-enabled="!detailOpen"
       @select="openKanjiDetail"
     />

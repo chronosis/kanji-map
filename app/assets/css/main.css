@@ -44,28 +44,41 @@ body,
 .km-srs.km-burned { background-color: #818cf8; }
 
 /*
- * Accuracy heatmap — 5% steps (km-acc-0 = 0% … km-acc-20 = 100%).
+ * Accuracy heatmap — 3% steps (km-acc-0 = 0% … km-acc-33 = 100%).
  * Anchor stops: green(100) → yellow(60) → red(50) → magenta(25) → purple(0);
  * intermediate classes use RGB interpolation between those stops.
  */
-.km-acc-0 { background-color: #7e22ce; } /* 0% purple */
-.km-acc-1 { background-color: #933ce3; } /* 5% */
-.km-acc-2 { background-color: #a855f7; } /* 10% violet */
-.km-acc-3 { background-color: #b850f4; } /* 15% */
-.km-acc-4 { background-color: #c94bf2; } /* 20% */
-.km-acc-5 { background-color: #d946ef; } /* 25% magenta */
-.km-acc-6 { background-color: #e454cc; } /* 30% */
-.km-acc-7 { background-color: #f063a8; } /* 35% */
-.km-acc-8 { background-color: #fb7185; } /* 40% rose */
-.km-acc-9 { background-color: #fa717b; } /* 45% */
-.km-acc-10 { background-color: #f87171; } /* 50% red */
-.km-acc-11 { background-color: #fba95c; } /* 55% */
-.km-acc-12 { background-color: #fde047; } /* 60% yellow */
-.km-acc-13 { background-color: #dee956; } /* 65% */
-.km-acc-14 { background-color: #bef264; } /* 70% lime */
-.km-acc-15 { background-color: #a2f188; } /* 75% */
-.km-acc-16 { background-color: #86efac; } /* 80% light green */
-.km-acc-17 { background-color: #6de599; } /* 85% */
-.km-acc-18 { background-color: #54da85; } /* 90% */
-.km-acc-19 { background-color: #3bd072; } /* 95% */
-.km-acc-20 { background-color: #22c55e; } /* 100% green */
+.km-acc-0 { background-color: #7e22ce; } /* 0% */
+.km-acc-1 { background-color: #8b31da; } /* 3% */
+.km-acc-2 { background-color: #9741e7; } /* 6% */
+.km-acc-3 { background-color: #a450f3; } /* 9% */
+.km-acc-4 { background-color: #af53f6; } /* 12% */
+.km-acc-5 { background-color: #b850f4; } /* 15% */
+.km-acc-6 { background-color: #c24df3; } /* 18% */
+.km-acc-7 { background-color: #cc4af1; } /* 21% */
+.km-acc-8 { background-color: #d647f0; } /* 24% */
+.km-acc-9 { background-color: #de4ce1; } /* 27% */
+.km-acc-10 { background-color: #e454cc; } /* 30% */
+.km-acc-11 { background-color: #eb5db6; } /* 33% */
+.km-acc-12 { background-color: #f266a1; } /* 36% */
+.km-acc-13 { background-color: #f96e8c; } /* 39% */
+.km-acc-14 { background-color: #fa7181; } /* 42% */
+.km-acc-15 { background-color: #fa717b; } /* 45% */
+.km-acc-16 { background-color: #f97175; } /* 48% */
+.km-acc-17 { background-color: #f97c6d; } /* 51% */
+.km-acc-18 { background-color: #fa9d60; } /* 54% */
+.km-acc-19 { background-color: #fcbf54; } /* 57% */
+.km-acc-20 { background-color: #fde047; } /* 60% */
+.km-acc-21 { background-color: #eae550; } /* 63% */
+.km-acc-22 { background-color: #d7eb58; } /* 66% */
+.km-acc-23 { background-color: #c4f061; } /* 69% */
+.km-acc-24 { background-color: #b3f172; } /* 72% */
+.km-acc-25 { background-color: #a2f188; } /* 75% */
+.km-acc-26 { background-color: #91f09e; } /* 78% */
+.km-acc-27 { background-color: #81eda8; } /* 81% */
+.km-acc-28 { background-color: #72e79c; } /* 84% */
+.km-acc-29 { background-color: #63e091; } /* 87% */
+.km-acc-30 { background-color: #54da85; } /* 90% */
+.km-acc-31 { background-color: #45d479; } /* 93% */
+.km-acc-32 { background-color: #36cd6e; } /* 96% */
+.km-acc-33 { background-color: #22c55e; } /* 100% */

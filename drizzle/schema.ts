@@ -11,7 +11,13 @@ export const kanjiRef = sqliteTable('kanji_ref', {
   /** True when character is in the WaniKani kanji subject catalog (set by sync). */
   inWanikani: integer('in_wanikani', { mode: 'boolean' }).notNull().default(false),
   wkLevel: integer('wk_level'),
-  wkApiOrder: integer('wk_api_order')
+  wkApiOrder: integer('wk_api_order'),
+  /** Kangxi radical symbol (Jisho / Kanjidic2) */
+  radicalSymbol: text('radical_symbol'),
+  /** JSON array of alternate radical forms, e.g. ["訁"] */
+  radicalFormsJson: text('radical_forms_json'),
+  /** JSON array of Jisho component parts, e.g. ["口","五","言"] */
+  partsJson: text('parts_json')
 })
 
 export const progressWanikani = sqliteTable('progress_wanikani', {

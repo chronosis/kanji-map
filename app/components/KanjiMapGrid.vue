@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import type { ColorMode, MapCell } from '../../shared/types/kanji'
+import type { MapHighlightFilters } from '../../shared/utils/map-highlight'
 import {
   cellVisualClass,
-  formatAccuracy,
-  hasApiSrs
+  formatAccuracy
 } from '../../shared/utils/colors'
+import { isMapCellDimmed } from '../../shared/utils/map-highlight'
 import { schoolYearLabel } from '../../shared/utils/kanji-order'
 import { clampPan } from '../../shared/utils/pan-clamp'
 import {
@@ -24,10 +25,7 @@ const DRAG_CLICK_THRESHOLD_PX = 6
 const props = defineProps<{
   cells: MapCell[]
   colorMode: ColorMode
-  /** Elementary year 1–6, 'jh' for 中学+ jōyō, or null for all */
-  highlightGrade: number | 'jh' | null
-  highlightSrsMin: number | null
-  highlightSrsMax: number | null
+  highlightFilters: MapHighlightFilters
   /** When false, ignore global pan/zoom hotkeys (e.g. detail modal open). */
   keyboardEnabled?: boolean
 }>()
@@ -146,28 +144,8 @@ function accuracyLabel(cell: MapCell): string {
   })
 }
 
-function isHighlighted(cell: MapCell): boolean {
-  if (props.highlightGrade === 'jh') {
-    if (!(cell.inJoyoo && cell.schoolGrade == null)) return false
-  } else if (props.highlightGrade != null && cell.schoolGrade !== props.highlightGrade) {
-    return false
-  }
-  if (props.highlightSrsMin === -1 && props.highlightSrsMax === -1) {
-    return !hasApiSrs(cell.sources, cell.srsAvg)
-  }
-  if (props.highlightSrsMin != null || props.highlightSrsMax != null) {
-    if (!hasApiSrs(cell.sources, cell.srsAvg)) return false
-    if (props.highlightSrsMin != null && (cell.srsAvg ?? 0) < props.highlightSrsMin) return false
-    if (props.highlightSrsMax != null && (cell.srsAvg ?? 0) > props.highlightSrsMax) return false
-  }
-  return true
-}
-
 function dimmed(cell: MapCell): boolean {
-  const anyFilter = props.highlightGrade != null
-    || props.highlightSrsMin != null
-    || props.highlightSrsMax != null
-  return anyFilter && !isHighlighted(cell)
+  return isMapCellDimmed(cell, props.highlightFilters)
 }
 
 function stepColumns(direction: -1 | 1) {

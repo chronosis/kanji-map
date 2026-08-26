@@ -50,7 +50,7 @@ Bands follow the WaniKani-style stage scale (BunPro stages normalized to 0–9):
 
 ### Accuracy heatmap
 
-Cell color is **review accuracy %** (0–100), not SRS stage. Colors advance in **5% steps**, with RGB interpolation between these anchors:
+Cell color is **review accuracy %** (0–100), not SRS stage. Colors advance in **3% steps**, with RGB interpolation between these anchors:
 
 | Range | Colors |
 |-------|--------|
@@ -166,7 +166,8 @@ Restart `pnpm dev` whenever you change `.env`.
 | **Order** | Jōyō appearance (default), WaniKani order, or usage frequency — see [Ordering modes](#ordering-modes) |
 | **Color mode** | SRS stage (default) or accuracy heatmap — see [Color modes](#color-modes) |
 | **Highlight year / SRS** | Dim cells that do not match (visual only) |
-| **Filters** | **Remove** untracked and/or unstudied cells from the grid |
+| **Search** | Enter a radical or kanji to highlight matches and kanji that use that component (Jisho parts/radical data) |
+| **Filters** | **Remove** untracked, unstudied, or unhighlighted cells from the grid |
 | **Columns** | 25–70 (step 5); default 40 |
 | **Theme** | Light by default; header toggle for dark |
 | **Pan** | Drag the map, or **↑ / ↓** anywhere on the page |
@@ -185,7 +186,8 @@ Merge rule: when both APIs have data for a character, **average** SRS (BunPro no
 | `pnpm dev` | Dev server → http://localhost:3000 |
 | `pnpm build` / `pnpm preview` | Production build / preview |
 | `pnpm lint` / `pnpm test` / `pnpm typecheck` | Quality gates |
-| `pnpm db:seed` | Seed `kanji_ref` from `data/kanji-union.json` |
+| `pnpm db:seed` | Seed `kanji_ref` from `data/kanji-union.json` (+ Jisho radical/parts from `data/kanji-jisho-meta.json`) |
+| `pnpm data:jisho-meta` | Fetch/update Jisho kanji radical + parts metadata (rate-limited; writes `data/kanji-jisho-meta.json`) |
 | `pnpm db:push` | Push Drizzle schema to SQLite |
 | `pnpm db:generate` | Generate migrations from `drizzle/schema.ts` |
 | `pnpm data:build` | Rebuild `data/kanji-union.json` from `data/raw/` |

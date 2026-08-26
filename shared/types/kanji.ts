@@ -45,12 +45,18 @@ export interface MapCell {
   wkSubjectId: number | null
   /** Index in WK `/subjects?types=kanji` response order (within-level sort) */
   wkApiOrder: number | null
+  /** Kangxi radical symbol from Jisho (Kanjidic2), e.g. 言 */
+  radicalSymbol: string | null
+  /** Alternate radical forms on the Jisho page, e.g. 訁 */
+  radicalForms: string[]
+  /** Component parts from Jisho used for radical/component search */
+  parts: string[]
 }
 
 export type ColorMode = 'srs' | 'accuracy'
 
 /** Focus filter for untracked / unstudied cells (dims non-matches). */
-export type MapFilterMode = 'none' | 'untracked' | 'untracked-unstudied'
+export type MapFilterMode = 'none' | 'untracked' | 'untracked-unstudied' | 'unhighlighted'
 
 export const SOURCE_WANIKANI = 1
 export const SOURCE_BUNPRO = 2

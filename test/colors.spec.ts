@@ -44,13 +44,13 @@ describe('colors', () => {
     expect(sortableAccuracy(100, 1, 3)).toBe(100)
   })
 
-  it('maps accuracy heatmap every 5% with interpolated colors', () => {
-    expect(accuracyHeatmapBucket(100)).toBe(20)
-    expect(accuracyHeatmapBucket(99)).toBe(19)
-    expect(accuracyHeatmapBucket(95)).toBe(19)
-    expect(accuracyHeatmapBucket(50)).toBe(10)
-    expect(accuracyHeatmapBucket(49)).toBe(9)
-    expect(accuracyHeatmapBucket(25)).toBe(5)
+  it('maps accuracy heatmap every 3% with interpolated colors', () => {
+    expect(accuracyHeatmapBucket(100)).toBe(33)
+    expect(accuracyHeatmapBucket(99)).toBe(33)
+    expect(accuracyHeatmapBucket(98)).toBe(32)
+    expect(accuracyHeatmapBucket(50)).toBe(16)
+    expect(accuracyHeatmapBucket(49)).toBe(16)
+    expect(accuracyHeatmapBucket(25)).toBe(8)
     expect(accuracyHeatmapBucket(0)).toBe(0)
 
     // Anchor stops keep their exact hex
@@ -66,14 +66,14 @@ describe('colors', () => {
     expect(mid75.startsWith('#')).toBe(true)
     expect(mid75).toBe(accuracyHeatmapColor(75))
 
-    expect(ACCURACY_HEATMAP_PALETTE).toHaveLength(21)
-    expect(ACCURACY_HEATMAP_PALETTE[20]).toBe('#22c55e')
-    expect(ACCURACY_HEATMAP_PALETTE[10]).toBe('#f87171')
+    expect(ACCURACY_HEATMAP_PALETTE).toHaveLength(34)
+    expect(ACCURACY_HEATMAP_PALETTE[33]).toBe('#22c55e')
     expect(ACCURACY_HEATMAP_PALETTE[0]).toBe('#7e22ce')
+    expect(ACCURACY_HEATMAP_PALETTE[20]).toBe('#fde047') // 60%
 
-    expect(accuracyBackground(100)).toBe('km-acc km-acc-20')
-    expect(accuracyBackground(50)).toBe('km-acc km-acc-10')
-    expect(accuracyBackground(25)).toBe('km-acc km-acc-5')
+    expect(accuracyBackground(100)).toBe('km-acc km-acc-33')
+    expect(accuracyBackground(50)).toBe('km-acc km-acc-16')
+    expect(accuracyBackground(25)).toBe('km-acc km-acc-8')
     expect(accuracyBackground(0)).toBe('km-acc km-acc-0')
   })
 
@@ -156,5 +156,7 @@ describe('colors', () => {
     expect(isOmittedByMapFilter('untracked-unstudied', untracked)).toBe(true)
     expect(isOmittedByMapFilter('untracked-unstudied', unstudied)).toBe(true)
     expect(isOmittedByMapFilter('untracked-unstudied', studied)).toBe(false)
+    expect(isOmittedByMapFilter('unhighlighted', studied, { dimmed: true })).toBe(true)
+    expect(isOmittedByMapFilter('unhighlighted', studied, { dimmed: false })).toBe(false)
   })
 })
