@@ -1,11 +1,12 @@
 import type { MapCell } from '../types/kanji'
 import { hasApiSrs } from './colors'
+import { isKanaOnlyQuery, readingsMatchQuery } from './readings'
 
 export interface MapHighlightFilters {
   highlightGrade: number | 'jh' | null
   highlightSrsMin: number | null
   highlightSrsMax: number | null
-  /** Trimmed search query (single radical or kanji, or longer for exact character match). */
+  /** Trimmed search query (radical, kanji, or kana reading). */
   searchQuery: string
 }
 
@@ -13,14 +14,29 @@ export function normalizeKanjiSearchQuery(raw: string): string {
   return raw.trim()
 }
 
-/** Radical symbols/forms and Jisho parts used for component search. */
-export interface KanjiComposition {
+/** Fields used for radical / component / reading search. */
+export interface KanjiSearchTarget {
   character: string
   radicalSymbol: string | null
   radicalForms: string[]
   parts: string[]
+  readings: string[]
 }
 
+export function kanjiSearchTargetFromCell(cell: MapCell): KanjiSearchTarget {
+  return {
+    character: cell.character,
+    radicalSymbol: cell.radicalSymbol ?? null,
+    radicalForms: cell.radicalForms ?? [],
+    parts: cell.parts ?? [],
+    readings: cell.readings ?? []
+  }
+}
+
+/** @deprecated Prefer KanjiSearchTarget / kanjiSearchTargetFromCell */
+export type KanjiComposition = Omit<KanjiSearchTarget, 'readings'>
+
+/** @deprecated Prefer kanjiSearchTargetFromCell */
 export function kanjiCompositionFromCell(cell: MapCell): KanjiComposition {
   return {
     character: cell.character,
@@ -30,17 +46,26 @@ export function kanjiCompositionFromCell(cell: MapCell): KanjiComposition {
   }
 }
 
-/** Whether the query matches this kanji directly or as radical/component. */
-export function matchesKanjiSearchQuery(query: string, comp: KanjiComposition): boolean {
+/**
+ * Whether the query matches this kanji:
+ * - kana-only → any on/kun/nanori reading form
+ * - otherwise → character, radical, or Jisho component part
+ */
+export function matchesKanjiSearchQuery(query: string, target: KanjiSearchTarget | KanjiComposition): boolean {
   const q = normalizeKanjiSearchQuery(query)
   if (!q) return true
 
-  if (comp.character === q || comp.character.includes(q)) return true
+  if (isKanaOnlyQuery(q)) {
+    const readings = 'readings' in target ? target.readings : []
+    return readingsMatchQuery(q, readings ?? [])
+  }
 
-  const radicalHits = [comp.radicalSymbol, ...comp.radicalForms].filter(Boolean) as string[]
+  if (target.character === q || target.character.includes(q)) return true
+
+  const radicalHits = [target.radicalSymbol, ...target.radicalForms].filter(Boolean) as string[]
   if (radicalHits.some(r => r === q || r.includes(q))) return true
 
-  if (comp.parts.some(p => p === q || p.includes(q))) return true
+  if (target.parts.some(p => p === q || p.includes(q))) return true
 
   return false
 }
@@ -68,7 +93,7 @@ export function isMapCellHighlighted(cell: MapCell, filters: MapHighlightFilters
   }
 
   const q = normalizeKanjiSearchQuery(filters.searchQuery)
-  if (q && !matchesKanjiSearchQuery(q, kanjiCompositionFromCell(cell))) {
+  if (q && !matchesKanjiSearchQuery(q, kanjiSearchTargetFromCell(cell))) {
     return false
   }
 

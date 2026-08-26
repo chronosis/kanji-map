@@ -17,7 +17,11 @@ export const kanjiRef = sqliteTable('kanji_ref', {
   /** JSON array of alternate radical forms, e.g. ["訁"] */
   radicalFormsJson: text('radical_forms_json'),
   /** JSON array of Jisho component parts, e.g. ["口","五","言"] */
-  partsJson: text('parts_json')
+  partsJson: text('parts_json'),
+  /** JSON array of searchable hiragana readings (on/kun/nanori stems) */
+  readingsJson: text('readings_json'),
+  /** Distinct raw reading count for map ordering */
+  readingCount: integer('reading_count').notNull().default(0)
 })
 
 export const progressWanikani = sqliteTable('progress_wanikani', {

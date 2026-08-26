@@ -171,6 +171,29 @@ export function compareByAccuracy(a: WkOrderable, b: WkOrderable): number {
   return cmpChar(a.character, b.character)
 }
 
+type ReadingCountOrderable = KanjiUnionEntry & {
+  readingCount?: number | null
+}
+
+/**
+ * Reading count: most readings first; missing/unknown count as 0; then jōyō appearance.
+ */
+export function compareByReadingCount(a: ReadingCountOrderable, b: ReadingCountOrderable): number {
+  const countA = a.readingCount ?? 0
+  const countB = b.readingCount ?? 0
+  if (countA !== countB) return countB - countA
+  return compareByJoyoAppearance(a, b)
+}
+
+/**
+ * Stroke count: fewest strokes first (unknown last); then jōyō appearance.
+ */
+export function compareByStrokeCount(a: KanjiUnionEntry, b: KanjiUnionEntry): number {
+  const strokes = cmpNumNullLast(a.strokes, b.strokes)
+  if (strokes !== 0) return strokes
+  return compareByJoyoAppearance(a, b)
+}
+
 export function compareKanjiEntries(a: KanjiUnionEntry, b: KanjiUnionEntry): number {
   return compareByGrade(a, b)
 }
@@ -186,6 +209,12 @@ export function getComparator(mode: OrderMode): (a: KanjiUnionEntry, b: KanjiUni
   }
   if (mode === 'srs') {
     return compareBySrs as (a: KanjiUnionEntry, b: KanjiUnionEntry) => number
+  }
+  if (mode === 'readings') {
+    return compareByReadingCount as (a: KanjiUnionEntry, b: KanjiUnionEntry) => number
+  }
+  if (mode === 'strokes') {
+    return compareByStrokeCount
   }
   return compareByGrade
 }

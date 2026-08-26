@@ -41,11 +41,33 @@ Newspaper / corpus **frequency rank** (lower rank = more common first). Use this
 
 ![Usage frequency ordering](docs/screenshots/order-usage.png)
 
+### Number of readings
+
+Most readings first (onyomi + kunyomi + nanori; missing data counts as 0), then the same jōyō appearance tie-break as above.
+
+### Stroke count
+
+Fewest strokes first (unknown stroke counts last), then jōyō appearance.
+
 ## Color modes
 
-**Color mode** paints each studied cell from merged WaniKani / BunPro progress. Untracked and unstudied cells stay grey (blue outline = untracked).
+**Color mode** paints each cell. The default **--** mode uses uniform grey (no color encoding). **School year** colors by MEXT year / 中学+. Progress modes (SRS, accuracy, WaniKani level) require a configured WaniKani API key. Untracked and unstudied greys apply in SRS/accuracy modes (blue outline = untracked).
 
-### SRS stage (default)
+### -- (none, default)
+
+Every cell uses the same neutral grey. Corner labels and highlights still work; only background color encoding is turned off.
+
+### School year
+
+Colors follow the same family as SRS stage bands:
+
+| Band | Color |
+|------|--------|
+| 小1–小6 | Red → orange → amber → green → cyan → blue |
+| 中学+ (jōyō) | Indigo |
+| Non-jōyō extras | Grey |
+
+### SRS stage
 
 Bands follow the WaniKani-style stage scale (BunPro stages normalized to 0–9): apprentice → guru → master → enlightened → burned.
 
@@ -63,6 +85,18 @@ Grey cells still mean unstudied / untracked (no accuracy to plot). The percentag
 ![Accuracy heatmap — Jōyō order](docs/screenshots/color-accuracy-joyo.png)
 
 ![Accuracy heatmap — WaniKani order](docs/screenshots/color-accuracy-wanikani.png)
+
+### WaniKani level
+
+Uses the same green→purple scale as accuracy. Level **1** maps to green; level **60** maps to purple (`pct = (1 − level / 60) × 100`). Kanji not in the WaniKani catalog stay grey (blue outline when untracked).
+
+### Stroke count / reading count heatmaps
+
+Uses the same green→purple scale as accuracy. For each cell:
+
+`pct = (1 − count / max) × 100`
+
+where `max` is the corpus-wide maximum stroke or reading count. Highest counts map to purple (0%); lowest map to green (100%). Missing stroke data stays grey.
 
 ## Prerequisites
 
@@ -164,12 +198,12 @@ Restart `pnpm dev` whenever you change `.env`.
 
 | Control | Behavior |
 |---------|----------|
-| **Order** | Jōyō appearance (default), WaniKani order, or usage frequency — see [Ordering modes](#ordering-modes) |
-| **Color mode** | SRS stage (default) or accuracy heatmap — see [Color modes](#color-modes) |
+| **Order** | Jōyō appearance (default), WaniKani, SRS, usage, accuracy, reading count, or stroke count — see [Ordering modes](#ordering-modes) |
+| **Color mode** | -- (uniform grey, default), School year, SRS, accuracy, WaniKani level, stroke-count, or reading-count heatmap — see [Color modes](#color-modes) |
 | **Highlight year / SRS** | Dim cells that do not match (visual only) |
-| **Search** | Enter a radical or kanji to highlight matches and kanji that use that component (Jisho parts/radical data) |
+| **Search** | Enter a radical, kanji, or kana reading to highlight matches (components via Jisho parts; readings via Kanjidic on/kun + WK nanori on sync) |
 | **Filters** | **Remove** untracked, unstudied, or unhighlighted cells from the grid |
-| **Columns** | 25–70 (step 5); default 40. Grid renders n+1 tracks: a transparent row-index gutter (0, n, 2n, …) plus n kanji columns |
+| **Columns** | 10–70 (step 5; 10/15/20 for mobile); default 40. Grid renders n+1 tracks: a transparent row-index gutter (0, n, 2n, …) plus n kanji columns |
 | **Theme** | Light by default; header toggle for dark |
 | **Pan** | Drag the map, or **↑ / ↓** anywhere on the page |
 | **Zoom** | Mouse wheel, toolbar buttons, or **Numpad + / −** |
@@ -187,7 +221,7 @@ Merge rule: when both APIs have data for a character, **average** SRS (BunPro no
 | `pnpm dev` | Dev server → http://localhost:3000 |
 | `pnpm build` / `pnpm preview` | Production build / preview |
 | `pnpm lint` / `pnpm test` / `pnpm typecheck` | Quality gates |
-| `pnpm db:seed` | Seed `kanji_ref` from `data/kanji-union.json` (+ Jisho radical/parts from `data/kanji-jisho-meta.json`) |
+| `pnpm db:seed` | Seed `kanji_ref` from `data/kanji-union.json` (+ Jisho radical/parts + Kanjidic readings) |
 | `pnpm data:jisho-meta` | Fetch/update Jisho kanji radical + parts metadata (rate-limited; writes `data/kanji-jisho-meta.json`) |
 | `pnpm db:push` | Push Drizzle schema to SQLite |
 | `pnpm db:generate` | Generate migrations from `drizzle/schema.ts` |

@@ -12,22 +12,29 @@ import {
   DEFAULT_GRID_COLUMNS,
   buildMapGridTrackItems,
   gridTrackColumnCount,
-  isGridColumnCount,
   stepGridColumns,
   type GridColumnCount
 } from '../../shared/utils/grid-columns'
 
-/** Cell aspect ratio width:height = 2:3 */
-const CELL_W_PX = 40
-const CELL_H_PX = 60
+/** Cell aspect ratio width:height = 4:5 */
+const CELL_W_PX = 44
+const CELL_H_PX = 55
 const GAP_PX = 1
 const PAD_PX = 8
 const DRAG_CLICK_THRESHOLD_PX = 6
+/** Shared style for accuracy corner label. */
+const CELL_META_CLASS = 'pointer-events-none absolute text-[0.6rem] leading-none text-gray-800/80'
+/** Slightly smaller than accuracy — stroke count / reading count. */
+const CELL_META_SMALL_CLASS = 'pointer-events-none absolute text-[0.5rem] leading-none text-gray-800/80'
 
 const props = defineProps<{
   cells: MapCell[]
   colorMode: ColorMode
   highlightFilters: MapHighlightFilters
+  /** Corpus maxes for stroke / reading heatmaps (stable across filters). */
+  heatmapScale?: { maxStrokes: number, maxReadingCount: number }
+  /** When false, omit accuracy corner labels (no WaniKani key configured). */
+  showAccuracy?: boolean
   /** When false, ignore global pan/zoom hotkeys (e.g. detail modal open). */
   keyboardEnabled?: boolean
 }>()
@@ -48,8 +55,6 @@ const pointerOrigin = reactive({ x: 0, y: 0 })
 const didPan = ref(false)
 const capturedPointerId = ref<number | null>(null)
 const viewport = ref<HTMLElement | null>(null)
-/** Skip center-preserve on the first columns watch after mount. */
-const allowCenterPreserve = ref(false)
 
 const trackItems = computed(() => buildMapGridTrackItems(props.cells, columns.value))
 
@@ -70,19 +75,6 @@ function gridContentHeight(cols: number = columns.value): number {
   return rows * CELL_H_PX + Math.max(0, rows - 1) * GAP_PX + PAD_PX * 2
 }
 
-function cellStrideX(): number {
-  return CELL_W_PX + GAP_PX
-}
-
-function cellStrideY(): number {
-  return CELL_H_PX + GAP_PX
-}
-
-/** Horizontal center of a data cell (col 0..n-1), accounting for the gutter. */
-function dataCellCenterX(dataCol: number): number {
-  return PAD_PX + (dataCol + 1) * cellStrideX() + CELL_W_PX / 2
-}
-
 function applyClamp() {
   const el = viewport.value
   if (!el) return
@@ -99,39 +91,19 @@ function applyClamp() {
   translate.y = next.y
 }
 
-/** Fit grid width to the viewport; scale is layout-only (not a zoom control). */
-function fitWidth(preserveCenterIndex: number | null = null) {
+/** Fit grid width to the viewport and pin pan to the top-left of the content. */
+function fitWidth() {
   const el = viewport.value
   if (!el) return
+  el.scrollTop = 0
+  el.scrollLeft = 0
   const available = el.clientWidth
   if (available <= 0) return
   const contentW = gridContentWidth(columns.value)
   scale.value = Math.min(4, Math.max(0.15, available / contentW))
-
-  if (preserveCenterIndex != null && props.cells.length > 0) {
-    const idx = Math.min(props.cells.length - 1, Math.max(0, preserveCenterIndex))
-    const col = idx % columns.value
-    const row = Math.floor(idx / columns.value)
-    const cx = dataCellCenterX(col)
-    const cy = PAD_PX + row * cellStrideY() + CELL_H_PX / 2
-    translate.x = el.clientWidth / 2 - cx * scale.value
-    translate.y = el.clientHeight / 2 - cy * scale.value
-  } else {
-    translate.x = 0
-    translate.y = 0
-  }
+  translate.x = 0
+  translate.y = 0
   applyClamp()
-}
-
-function viewportCenterCellIndex(cols: number): number {
-  const el = viewport.value
-  if (!el || cols <= 0 || props.cells.length === 0) return 0
-  // Skip the gutter column when mapping viewport X → data column.
-  const cx = (-translate.x + el.clientWidth / 2) / scale.value - PAD_PX - cellStrideX()
-  const cy = (-translate.y + el.clientHeight / 2) / scale.value - PAD_PX
-  const col = Math.min(cols - 1, Math.max(0, Math.floor(cx / cellStrideX())))
-  const row = Math.max(0, Math.floor(cy / cellStrideY()))
-  return Math.min(props.cells.length - 1, row * cols + col)
 }
 
 function cellVisualInput(cell: MapCell) {
@@ -141,19 +113,39 @@ function cellVisualInput(cell: MapCell) {
     sources: cell.sources,
     inJoyoo: cell.inJoyoo,
     schoolGrade: cell.schoolGrade,
-    inWanikani: cell.inWanikani
+    inWanikani: cell.inWanikani,
+    strokes: cell.strokes,
+    readingCount: cell.readingCount,
+    wkLevel: cell.wkLevel
   }
 }
 
 function cellClass(cell: MapCell): string {
-  return cellVisualClass(props.colorMode, cellVisualInput(cell))
+  return cellVisualClass(props.colorMode, cellVisualInput(cell), props.heatmapScale)
 }
 
 function accuracyLabel(cell: MapCell): string {
+  if (props.showAccuracy === false) return ''
   return formatAccuracy(cell.accuracyAvg, {
     sources: cell.sources,
     srsAvg: cell.srsAvg
   })
+}
+
+function cellTitle(cell: MapCell): string {
+  const parts = [
+    cell.character,
+    schoolYearLabel(cell.schoolGrade, cell.inJoyoo),
+    `JLPT ${cell.jlptLevel ?? '—'}`,
+    `SRS ${cell.srsAvg?.toFixed(1) ?? '—'}`
+  ]
+  const accuracy = accuracyLabel(cell)
+  if (accuracy) parts.push(accuracy)
+  return parts.join(' · ')
+}
+
+function strokesLabel(cell: MapCell): string {
+  return cell.strokes != null ? String(cell.strokes) : '—'
 }
 
 function dimmed(cell: MapCell): boolean {
@@ -246,7 +238,7 @@ function resetView() {
   if (columns.value !== DEFAULT_GRID_COLUMNS) {
     columns.value = DEFAULT_GRID_COLUMNS
   }
-  nextTick(() => fitWidth(null))
+  nextTick(() => fitWidth())
 }
 
 /** Screen-space pan for one grid row (matches cell height at current fit scale). */
@@ -284,13 +276,11 @@ function onWindowKeyDown(event: KeyboardEvent) {
 let resizeObserver: ResizeObserver | null = null
 
 onMounted(() => {
-  fitWidth(null)
-  allowCenterPreserve.value = true
+  fitWidth()
   window.addEventListener('keydown', onWindowKeyDown)
   if (viewport.value && typeof ResizeObserver !== 'undefined') {
     resizeObserver = new ResizeObserver(() => {
-      const center = viewportCenterCellIndex(columns.value)
-      fitWidth(center)
+      fitWidth()
     })
     resizeObserver.observe(viewport.value)
   }
@@ -301,18 +291,12 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect()
 })
 
-watch(columns, (_newCols, oldCols) => {
-  if (!allowCenterPreserve.value) {
-    nextTick(() => fitWidth(null))
-    return
-  }
-  const prev = isGridColumnCount(oldCols) ? oldCols : columns.value
-  const center = viewportCenterCellIndex(prev)
-  nextTick(() => fitWidth(center))
+watch(columns, () => {
+  nextTick(() => fitWidth())
 })
 
 watch(() => props.cells.length, () => {
-  nextTick(() => fitWidth(viewportCenterCellIndex(columns.value)))
+  nextTick(() => fitWidth())
 })
 
 defineExpose({ zoomIn, zoomOut, resetView, fitWidth })
@@ -371,11 +355,32 @@ defineExpose({ zoomIn, zoomOut, resetView, fitWidth })
               width: `${CELL_W_PX}px`,
               height: `${CELL_H_PX}px`
             }"
-            :title="`${item.cell.character} · ${schoolYearLabel(item.cell.schoolGrade, item.cell.inJoyoo)} · JLPT ${item.cell.jlptLevel ?? '—'} · SRS ${item.cell.srsAvg?.toFixed(1) ?? '—'} · ${accuracyLabel(item.cell)}`"
+            :title="cellTitle(item.cell)"
             @click="onCellClick(item.cell.character)"
           >
             <span class="select-none font-bold text-gray-900 dark:text-gray-950">{{ item.cell.character }}</span>
-            <span class="pointer-events-none absolute bottom-0.5 right-0.5 text-[0.6rem] leading-none text-gray-800/80">
+            <span
+              class="pointer-events-none absolute top-0.5 left-0.5 text-[0.6rem] font-bold leading-none text-gray-900"
+            >
+              {{ item.cell.joyoIndex + 1 }}
+            </span>
+            <span
+              class="top-0.5 right-0.5"
+              :class="CELL_META_SMALL_CLASS"
+            >
+              {{ strokesLabel(item.cell) }}
+            </span>
+            <span
+              class="bottom-0.5 left-0.5"
+              :class="CELL_META_SMALL_CLASS"
+            >
+              {{ item.cell.readingCount }}
+            </span>
+            <span
+              v-if="showAccuracy !== false"
+              class="bottom-0.5 right-0.5"
+              :class="CELL_META_CLASS"
+            >
               {{ accuracyLabel(item.cell) }}
             </span>
           </button>

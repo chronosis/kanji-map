@@ -21,6 +21,8 @@ export interface WanikaniKanjiProgress {
   meaningIncorrect: number
   readingCorrect: number
   readingIncorrect: number
+  /** Raw WK readings (onyomi / kunyomi / nanori) for search indexing. */
+  readings: string[]
 }
 
 interface WkCollection<T> {
@@ -98,7 +100,11 @@ export async function fetchWanikaniKanjiPrimaryMeaningLookup(
 export async function fetchWanikaniKanjiProgress(apiKey: string): Promise<WanikaniKanjiProgress[]> {
   if (!apiKey) return []
 
-  type SubjectData = { characters: string | null, level: number }
+  type SubjectData = {
+    characters: string | null
+    level: number
+    readings?: Array<{ reading: string, type?: string }>
+  }
   type AssignmentData = { subject_id: number, srs_stage: number, subject_type: string }
   type ReviewStatData = {
     subject_id: number
@@ -155,7 +161,8 @@ export async function fetchWanikaniKanjiProgress(apiKey: string): Promise<Wanika
       meaningCorrect,
       meaningIncorrect,
       readingCorrect,
-      readingIncorrect
+      readingIncorrect,
+      readings: (s.data.readings ?? []).map(r => r.reading).filter(Boolean)
     })
     apiOrder++
   }

@@ -18,10 +18,14 @@ useSeoMeta({
   description: 'Pannable mastery map of jōyō + JLPT kanji from WaniKani and BunPro'
 })
 
-const { data, pending, error } = await useFetch<{ cells: MapCell[], columns: number }>('/api/map')
+const { data, pending, error } = await useFetch<{
+  cells: MapCell[]
+  columns: number
+  sourcesConfigured?: { wanikani: boolean, bunpro: boolean }
+}>('/api/map')
 
 const { syncMessage } = useApiSync()
-const colorMode = ref<ColorMode>('srs')
+const colorMode = ref<ColorMode>('none')
 const orderMode = ref<OrderMode>('joyo')
 const columnCount = ref<GridColumnCount>(DEFAULT_GRID_COLUMNS)
 const highlightGrade = ref<string>('all')
@@ -32,28 +36,66 @@ const gridRef = ref<{
   zoomIn: () => void
   zoomOut: () => void
   resetView: () => void
-  fitWidth: (preserveCenterIndex?: number | null) => void
+  fitWidth: () => void
 } | null>(null)
 const detailOpen = ref(false)
 const detailCharacter = ref<string | null>(null)
+const helpOpen = ref(false)
 
 function openKanjiDetail(character: string) {
   detailCharacter.value = character
   detailOpen.value = true
 }
 
-const colorModeItems = [
+const wanikaniConfigured = computed(
+  () => Boolean(data.value?.sourcesConfigured?.wanikani)
+)
+
+const ALL_COLOR_MODE_ITEMS: Array<{ label: string, value: ColorMode }> = [
+  { label: '--', value: 'none' },
+  { label: 'School year', value: 'year' },
   { label: 'SRS stage', value: 'srs' },
-  { label: 'Accuracy heatmap', value: 'accuracy' }
+  { label: 'Accuracy heatmap', value: 'accuracy' },
+  { label: 'WaniKani level', value: 'wk' },
+  { label: 'Stroke count heatmap', value: 'strokes' },
+  { label: 'Reading count heatmap', value: 'readings' }
 ]
 
-const orderModeItems = [
+const WK_GATED_COLOR_MODES: ReadonlySet<ColorMode> = new Set(['srs', 'accuracy', 'wk'])
+
+const ALL_ORDER_MODE_ITEMS: Array<{ label: string, value: OrderMode }> = [
   { label: 'Jōyō appearance', value: 'joyo' },
   { label: 'WaniKani order', value: 'wk' },
   { label: 'SRS stage', value: 'srs' },
   { label: 'Usage (frequency)', value: 'usage' },
-  { label: 'Accuracy', value: 'accuracy' }
+  { label: 'Accuracy', value: 'accuracy' },
+  { label: 'Number of readings', value: 'readings' },
+  { label: 'Stroke count', value: 'strokes' }
 ]
+
+const colorModeItems = computed(() => {
+  if (wanikaniConfigured.value) return ALL_COLOR_MODE_ITEMS
+  return ALL_COLOR_MODE_ITEMS.filter(item => !WK_GATED_COLOR_MODES.has(item.value))
+})
+
+const orderModeItems = computed(() => {
+  if (wanikaniConfigured.value) return ALL_ORDER_MODE_ITEMS
+  return ALL_ORDER_MODE_ITEMS.filter(item => item.value !== 'srs' && item.value !== 'accuracy')
+})
+
+watch(
+  wanikaniConfigured,
+  (configured) => {
+    if (configured) return
+    if (WK_GATED_COLOR_MODES.has(colorMode.value)) {
+      colorMode.value = 'strokes'
+    }
+    if (orderMode.value === 'srs' || orderMode.value === 'accuracy') {
+      orderMode.value = 'joyo'
+    }
+  },
+  { immediate: true }
+)
 
 const columnItems = GRID_COLUMN_OPTIONS.map(n => ({
   label: String(n),
@@ -142,9 +184,25 @@ const orderedCells = computed(() => {
   return sortMapCells(filtered, orderMode.value)
 })
 
+/** Corpus-wide maxes so stroke/reading heatmaps stay stable under filters. */
+const heatmapScale = computed(() => {
+  const cells = data.value?.cells ?? []
+  let maxStrokes = 0
+  let maxReadingCount = 0
+  for (const cell of cells) {
+    if (cell.strokes != null && cell.strokes > maxStrokes) maxStrokes = cell.strokes
+    if (cell.readingCount > maxReadingCount) maxReadingCount = cell.readingCount
+  }
+  return { maxStrokes, maxReadingCount }
+})
+
 watch(orderMode, () => {
   // Re-fit pan/scale for the new order without resetting the column zoom level.
-  nextTick(() => gridRef.value?.fitWidth(null))
+  nextTick(() => gridRef.value?.fitWidth())
+})
+
+watch(mapFilter, () => {
+  nextTick(() => gridRef.value?.fitWidth())
 })
 </script>
 
@@ -202,20 +260,34 @@ watch(orderMode, () => {
             icon="i-lucide-zoom-in"
             color="neutral"
             variant="soft"
+            aria-label="Zoom in"
             @click="gridRef?.zoomIn()"
           />
           <UButton
             icon="i-lucide-zoom-out"
             color="neutral"
             variant="soft"
+            aria-label="Zoom out"
             @click="gridRef?.zoomOut()"
           />
-          <UButton
-            icon="i-lucide-locate"
-            color="neutral"
-            variant="soft"
-            @click="gridRef?.resetView()"
-          />
+          <UTooltip text="Fit map to view">
+            <UButton
+              icon="i-lucide-locate"
+              color="neutral"
+              variant="soft"
+              aria-label="Fit map to view"
+              @click="gridRef?.resetView()"
+            />
+          </UTooltip>
+          <UTooltip text="Help">
+            <UButton
+              icon="i-lucide-circle-help"
+              color="neutral"
+              variant="soft"
+              aria-label="Help"
+              @click="helpOpen = true"
+            />
+          </UTooltip>
         </div>
       </div>
 
@@ -224,11 +296,11 @@ watch(orderMode, () => {
           <UInput
             v-model="kanjiSearch"
             name="kanjiSearchQuery"
-            placeholder="Radical or kanji…"
+            placeholder="Radical, kanji, or reading…"
             autocomplete="off"
             autocorrect="off"
             spellcheck="false"
-            class="w-36 font-medium"
+            class="w-[13.5rem] font-medium"
           />
         </UFormField>
 
@@ -237,18 +309,11 @@ watch(orderMode, () => {
             v-model="columnCountSelect"
             :items="columnItems"
             value-key="value"
-            class="w-24"
+            class="w-[4.5rem]"
           />
         </UFormField>
       </div>
     </div>
-
-    <p class="shrink-0 text-xs text-muted">
-      School years follow MEXT’s 学年別漢字配当表 (小学校 小1–小6 only). Remaining 常用漢字 are
-      taught in 中学 without an official year-by-year list — shown as 中学+. There is no national
-      7–12 kanji year table. Light blue outline = untracked (jōyō/school, not in WaniKani).
-      Lighter grey without outline = unstudied (in WaniKani, no positive SRS yet).
-    </p>
 
     <p
       v-if="syncMessage"
@@ -277,13 +342,20 @@ watch(orderMode, () => {
       :cells="orderedCells"
       :color-mode="colorMode"
       :highlight-filters="highlightFilters"
-      :keyboard-enabled="!detailOpen"
+      :heatmap-scale="heatmapScale"
+      :show-accuracy="wanikaniConfigured"
+      :keyboard-enabled="!detailOpen && !helpOpen"
       @select="openKanjiDetail"
     />
 
     <KanjiDetailModal
       v-model:open="detailOpen"
       :character="detailCharacter"
+    />
+
+    <MapHelpModal
+      v-model:open="helpOpen"
+      :wanikani-configured="wanikaniConfigured"
     />
   </div>
 </template>

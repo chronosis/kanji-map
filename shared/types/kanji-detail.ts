@@ -87,6 +87,11 @@ export interface KanjiDetailResponse {
   jishoUrl: string
   local: KanjiDetailLocal | null
   wanikani: KanjiDetailWanikani | null
+  /**
+   * Jisho English meanings when WaniKani meanings are unavailable
+   * (no API key, untracked kanji, or WK subject missing).
+   */
+  jishoMeanings: KanjiDetailMeaning[]
   jishoWords: KanjiDetailVocabExample[]
   bunproWords: KanjiDetailVocabExample[]
   warnings: string[]

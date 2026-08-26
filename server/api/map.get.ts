@@ -8,6 +8,11 @@ export default defineEventHandler(async () => {
   return {
     columns: DEFAULT_GRID_COLUMNS,
     total: cells.length,
-    cells
+    cells,
+    /** Which external APIs have credentials configured (never exposes the secrets). */
+    sourcesConfigured: {
+      wanikani: Boolean(String(config.wanikaniApiKey || '').trim()),
+      bunpro: Boolean(String(config.bunproFrontendJwt || '').trim())
+    }
   }
 })

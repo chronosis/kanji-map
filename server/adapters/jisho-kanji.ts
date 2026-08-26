@@ -69,20 +69,31 @@ export function parseJishoKanjiParts(pageHtml: string): string[] {
   return parseAnchorTexts(partsBlock).sort()
 }
 
+/** English meanings from the Jisho kanji details block (comma-separated). */
+export function parseJishoKanjiMeanings(pageHtml: string): string[] {
+  const block = between(pageHtml, '<div class="kanji-details__main-meanings">', '</div>')
+  if (!block) return []
+  const text = block.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim()
+  if (!text) return []
+  return text
+    .split(',')
+    .map(s => s.trim())
+    .filter(Boolean)
+}
+
 export function parseJishoKanjiPage(pageHtml: string): JishoKanjiMeta {
   const { radicalSymbol, radicalForms } = parseJishoKanjiRadical(pageHtml)
   const parts = parseJishoKanjiParts(pageHtml)
   return { radicalSymbol, radicalForms, parts }
 }
 
-/** Fetch kanji metadata from Jisho (build-time script only — rate-limit requests). */
-export async function fetchJishoKanjiMeta(character: string): Promise<JishoKanjiMeta | null> {
+async function fetchJishoKanjiPageHtml(character: string): Promise<string | null> {
   if (!character) return null
   const url = `https://jisho.org/search/${encodeURIComponent(character)}%23kanji`
   let res: Response
   try {
     res = await fetch(url, {
-      headers: { 'Accept': 'text/html', 'User-Agent': 'kanji-map-data-build/1.0' }
+      headers: { 'Accept': 'text/html', 'User-Agent': 'kanji-map/1.0' }
     })
   } catch {
     return null
@@ -90,5 +101,22 @@ export async function fetchJishoKanjiMeta(character: string): Promise<JishoKanji
   if (!res.ok) return null
   const html = await res.text()
   if (!html.includes('class="kanji details"')) return null
+  return html
+}
+
+/** Fetch kanji metadata from Jisho (build-time script only — rate-limit requests). */
+export async function fetchJishoKanjiMeta(character: string): Promise<JishoKanjiMeta | null> {
+  const html = await fetchJishoKanjiPageHtml(character)
+  if (!html) return null
   return parseJishoKanjiPage(html)
+}
+
+/**
+ * English meanings for a kanji from the Jisho #kanji page.
+ * Used when WaniKani detail is unavailable or the character is untracked.
+ */
+export async function fetchJishoKanjiMeanings(character: string): Promise<string[]> {
+  const html = await fetchJishoKanjiPageHtml(character)
+  if (!html) return []
+  return parseJishoKanjiMeanings(html)
 }

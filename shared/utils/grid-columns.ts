@@ -1,5 +1,5 @@
-/** Allowed map column counts (default 40). */
-export const GRID_COLUMN_OPTIONS = [25, 30, 35, 40, 45, 50, 55, 60, 65, 70] as const
+/** Allowed map column counts (default 40). Lower counts suit mobile / large cells. */
+export const GRID_COLUMN_OPTIONS = [10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70] as const
 
 export type GridColumnCount = (typeof GRID_COLUMN_OPTIONS)[number]
 

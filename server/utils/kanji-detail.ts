@@ -2,9 +2,10 @@
  * Assemble kanji detail modal payload from local DB + WK / Jisho / BunPro.
  */
 import { eq } from 'drizzle-orm'
-import type { KanjiDetailResponse, KanjiDetailVocabExample } from '../../shared/types/kanji-detail'
+import type { KanjiDetailMeaning, KanjiDetailResponse, KanjiDetailVocabExample } from '../../shared/types/kanji-detail'
 import { jishoKanjiUrl } from '../../shared/utils/kanji'
 import { fetchJishoWordsForKanji } from '../adapters/jisho'
+import { fetchJishoKanjiMeanings } from '../adapters/jisho-kanji'
 import { searchBunproVocabForKanji } from '../adapters/bunpro'
 import {
   fetchWanikaniKanjiPrimaryMeaningLookup,
@@ -162,6 +163,19 @@ export async function getKanjiDetail(character: string): Promise<KanjiDetailResp
     warnings.push('WANIKANI_API_KEY empty — skipped WaniKani detail')
   }
 
+  let jishoMeanings: KanjiDetailMeaning[] = []
+  if (!wanikani?.meanings?.length) {
+    try {
+      const meanings = await fetchJishoKanjiMeanings(character)
+      jishoMeanings = meanings.map((meaning, index) => ({
+        meaning,
+        primary: index === 0
+      }))
+    } catch {
+      warnings.push('Jisho kanji meanings failed')
+    }
+  }
+
   let jishoWords: KanjiDetailVocabExample[] = []
   try {
     jishoWords = await fetchJishoWordsForKanji(character, 8)
@@ -191,6 +205,7 @@ export async function getKanjiDetail(character: string): Promise<KanjiDetailResp
     jishoUrl: jishoKanjiUrl(character),
     local,
     wanikani,
+    jishoMeanings,
     jishoWords,
     bunproWords,
     warnings

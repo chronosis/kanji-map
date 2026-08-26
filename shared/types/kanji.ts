@@ -7,7 +7,15 @@ export type SchoolGrade = 1 | 2 | 3 | 4 | 5 | 6
 export type JlptLevel = 'N5' | 'N4' | 'N3' | 'N2' | 'N1'
 
 /** How the grid is ordered. */
-export type OrderMode = 'grade' | 'usage' | 'joyo' | 'wk' | 'accuracy' | 'srs'
+export type OrderMode
+  = | 'grade'
+    | 'usage'
+    | 'joyo'
+    | 'wk'
+    | 'accuracy'
+    | 'srs'
+    | 'readings'
+    | 'strokes'
 
 export interface KanjiUnionEntry {
   character: string
@@ -28,6 +36,8 @@ export interface MapCell {
   freqRank: number | null
   strokes: number | null
   gridIndex: number
+  /** Stable 0-based index in jōyō-appearance order (UI shows joyoIndex + 1). */
+  joyoIndex: number
   /** Averaged SRS 0–9 (WK scale). null = unstudied */
   srsAvg: number | null
   /** Averaged accuracy 0–100. null = unstudied */
@@ -51,9 +61,19 @@ export interface MapCell {
   radicalForms: string[]
   /** Component parts from Jisho used for radical/component search */
   parts: string[]
+  /**
+   * Searchable readings (hiragana forms from Kanjidic on/kun and WK sync,
+   * including stems before okurigana dots).
+   */
+  readings: string[]
+  /**
+   * Distinct raw reading count (on + kun + nanori, not stem-expanded).
+   * 0 when unknown / missing.
+   */
+  readingCount: number
 }
 
-export type ColorMode = 'srs' | 'accuracy'
+export type ColorMode = 'none' | 'year' | 'srs' | 'accuracy' | 'strokes' | 'readings' | 'wk'
 
 /** Focus filter for untracked / unstudied cells (dims non-matches). */
 export type MapFilterMode = 'none' | 'untracked' | 'untracked-unstudied' | 'unhighlighted'

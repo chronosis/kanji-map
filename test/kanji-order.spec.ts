@@ -3,7 +3,9 @@ import {
   assignGridIndices,
   compareByAccuracy,
   compareByJoyoAppearance,
+  compareByReadingCount,
   compareBySrs,
+  compareByStrokeCount,
   compareByUsage,
   compareByWk,
   compareKanjiEntries,
@@ -42,6 +44,12 @@ function cell(
     wkLevel: null,
     wkSubjectId: null,
     wkApiOrder: null,
+    radicalSymbol: null,
+    radicalForms: [],
+    parts: [],
+    readings: [],
+    readingCount: 0,
+    joyoIndex: 0,
     ...partial
   }
 }
@@ -109,6 +117,30 @@ describe('kanji-order', () => {
       cell('月', { inWanikani: true, accuracyAvg: null, sources: 1, srsAvg: 0 })
     ]
     expect(sortMapCells(cells, 'accuracy').map(c => c.character)).toEqual(['日', '僕', '月'])
+  })
+
+  it('orders by reading count descending then jōyō appearance', () => {
+    const cells = [
+      cell('一', { readingCount: 2, inJoyoo: true, schoolGrade: 1, strokes: 1 }),
+      cell('語', { readingCount: 3, inJoyoo: true, schoolGrade: 2, strokes: 14 }),
+      cell('漢', { readingCount: 3, inJoyoo: true, schoolGrade: 3, strokes: 13 }),
+      cell('外', { readingCount: 0, inJoyoo: false, strokes: 5 }),
+      cell('未', { readingCount: 0, inJoyoo: true, schoolGrade: 2, strokes: 5 })
+    ]
+    expect(sortMapCells(cells, 'readings').map(c => c.character)).toEqual(['語', '漢', '一', '未', '外'])
+    expect(compareByReadingCount(cells[1]!, cells[0]!)).toBeLessThan(0)
+  })
+
+  it('orders by stroke count ascending then jōyō appearance', () => {
+    const cells = [
+      cell('漢', { strokes: 13, inJoyoo: true, schoolGrade: null }),
+      cell('二', { strokes: 2, inJoyoo: true, schoolGrade: 1 }),
+      cell('一', { strokes: 1, inJoyoo: true, schoolGrade: 1 }),
+      cell('外', { strokes: 1, inJoyoo: false }),
+      cell('稀', { strokes: null, inJoyoo: true, schoolGrade: 5 })
+    ]
+    expect(sortMapCells(cells, 'strokes').map(c => c.character)).toEqual(['一', '外', '二', '漢', '稀'])
+    expect(compareByStrokeCount(cells[2]!, cells[1]!)).toBeLessThan(0)
   })
 
   it('orders by SRS stage descending then WaniKani lesson order', () => {

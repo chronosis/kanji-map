@@ -25,8 +25,8 @@ describe('wanikani adapter parsing', () => {
           json: async () => ({
             pages: { next_url: null },
             data: [
-              { id: 1, data: { characters: '日', level: 1 } },
-              { id: 2, data: { characters: '月', level: 2 } }
+              { id: 1, data: { characters: '日', level: 1, readings: [{ reading: 'にち', type: 'onyomi' }] } },
+              { id: 2, data: { characters: '月', level: 2, readings: [{ reading: 'げつ', type: 'onyomi' }] } }
             ]
           })
         }
@@ -76,7 +76,8 @@ describe('wanikani adapter parsing', () => {
       meaningCorrect: 8,
       meaningIncorrect: 2,
       readingCorrect: 9,
-      readingIncorrect: 1
+      readingIncorrect: 1,
+      readings: ['にち']
     })
     expect(rows.find(r => r.character === '月')).toMatchObject({
       character: '月',
@@ -84,7 +85,8 @@ describe('wanikani adapter parsing', () => {
       level: 2,
       apiOrder: 1,
       srsStage: 0,
-      accuracyPct: null
+      accuracyPct: null,
+      readings: ['げつ']
     })
   })
 

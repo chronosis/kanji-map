@@ -4,6 +4,7 @@
 import { readFileSync, existsSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { ensureSchema } from '../server/utils/ensure-schema'
+import { loadKanjidicReadingIndex } from '../server/utils/kanji-readings'
 import { kanjiRef } from '../drizzle/schema'
 import type { KanjiUnionEntry } from '../shared/types/kanji'
 import type { JishoKanjiMeta } from '../server/adapters/jisho-kanji'
@@ -22,6 +23,7 @@ async function main() {
   const raw = JSON.parse(readFileSync(unionPath, 'utf8')) as Array<KanjiUnionEntry & { gridIndex?: number }>
   const rows = assignGridIndices(raw)
   const jishoMeta = loadJishoMeta()
+  const kanjidic = loadKanjidicReadingIndex()
 
   const { client, db } = await ensureSchema(process.env.DATABASE_PATH || './data/kanji-map.sqlite')
 
@@ -31,6 +33,7 @@ async function main() {
   for (let i = 0; i < rows.length; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize).map((row) => {
       const meta = jishoMeta[row.character]
+      const readings = kanjidic.get(row.character)
       return {
         character: row.character,
         schoolGrade: row.schoolGrade,
@@ -41,14 +44,17 @@ async function main() {
         gridIndex: row.gridIndex,
         radicalSymbol: meta?.radicalSymbol ?? null,
         radicalFormsJson: stringifyJsonStringArray(meta?.radicalForms ?? []),
-        partsJson: stringifyJsonStringArray(meta?.parts ?? [])
+        partsJson: stringifyJsonStringArray(meta?.parts ?? []),
+        readingsJson: stringifyJsonStringArray(readings?.searchReadings ?? []),
+        readingCount: readings?.readingCount ?? 0
       }
     })
     await db.insert(kanjiRef).values(chunk)
   }
 
   const withMeta = rows.filter(r => jishoMeta[r.character]?.parts?.length || jishoMeta[r.character]?.radicalSymbol).length
-  console.log(`Seeded ${rows.length} kanji into kanji_ref (${withMeta} with Jisho radical/parts metadata)`)
+  const withReadings = rows.filter(r => (kanjidic.get(r.character)?.readingCount ?? 0) > 0).length
+  console.log(`Seeded ${rows.length} kanji into kanji_ref (${withMeta} with Jisho radical/parts, ${withReadings} with readings)`)
   client.close()
 }
 

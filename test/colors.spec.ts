@@ -9,10 +9,14 @@ import {
   isOmittedByMapFilter,
   accuracyHeatmapBucket,
   accuracyHeatmapColor,
+  accuracyTextColor,
   interpolateAccuracyColor,
   ACCURACY_HEATMAP_PALETTE,
   accuracyBackground,
+  invertedCountHeatmapPct,
+  schoolYearBand,
   srsBand,
+  srsBandColor,
   srsBackground,
   cellBackground
 } from '../shared/utils/colors'
@@ -77,10 +81,75 @@ describe('colors', () => {
     expect(accuracyBackground(0)).toBe('km-acc km-acc-0')
   })
 
+  it('inverts count heatmaps relative to corpus max', () => {
+    expect(invertedCountHeatmapPct(0, 10)).toBe(100)
+    expect(invertedCountHeatmapPct(5, 10)).toBe(50)
+    expect(invertedCountHeatmapPct(10, 10)).toBe(0)
+    expect(invertedCountHeatmapPct(0, 0)).toBe(100)
+
+    const scale = { maxStrokes: 20, maxReadingCount: 4 }
+    expect(cellVisualClass('strokes', input({ strokes: 20 }), scale)).toBe('km-acc km-acc-0')
+    expect(cellVisualClass('strokes', input({ strokes: 10 }), scale)).toBe('km-acc km-acc-16')
+    expect(cellVisualClass('strokes', input({ strokes: 0 }), scale)).toBe('km-acc km-acc-33')
+    expect(cellVisualClass('strokes', input({ strokes: null }), scale)).toContain('km-unstudied')
+
+    expect(cellVisualClass('readings', input({ readingCount: 4 }), scale)).toBe('km-acc km-acc-0')
+    expect(cellVisualClass('readings', input({ readingCount: 2 }), scale)).toBe('km-acc km-acc-16')
+    expect(cellVisualClass('readings', input({ readingCount: 0 }), scale)).toBe('km-acc km-acc-33')
+  })
+
+  it('maps WaniKani level onto the inverted heatmap (1 green … 60 purple)', () => {
+    expect(cellVisualClass('wk', input({ wkLevel: 60 }))).toBe('km-acc km-acc-0')
+    expect(cellVisualClass('wk', input({ wkLevel: 30 }))).toBe('km-acc km-acc-16')
+    expect(cellVisualClass('wk', input({ wkLevel: 1 }))).toBe(
+      `km-acc km-acc-${accuracyHeatmapBucket(invertedCountHeatmapPct(1, 60))}`
+    )
+    expect(cellVisualClass('wk', input({ wkLevel: null }))).toContain('km-unstudied')
+    expect(cellVisualClass('wk', input({
+      wkLevel: null,
+      inJoyoo: true,
+      schoolGrade: 1,
+      inWanikani: false
+    }))).toContain('km-untracked')
+  })
+
   it('maps srs bands', () => {
     expect(srsBand(null)).toBe('unstudied')
     expect(srsBand(3)).toBe('apprentice')
     expect(srsBand(9)).toBe('burned')
+  })
+
+  it('exposes SRS and accuracy text colors matching map palettes', () => {
+    expect(srsBandColor(3)).toBe('#fca5a5')
+    expect(srsBandColor(5)).toBe('#fbbf24')
+    expect(srsBandColor(9)).toBe('#818cf8')
+    expect(srsBandColor(null)).toBe('#a3a3a3')
+
+    expect(accuracyTextColor(100, { sources: 1, srsAvg: 3 })).toBe(accuracyHeatmapColor(100))
+    expect(accuracyTextColor(50, { sources: 1, srsAvg: 3 })).toBe(accuracyHeatmapColor(50))
+    expect(accuracyTextColor(100, { sources: 1, srsAvg: 0 })).toBeNull()
+    expect(accuracyTextColor(null, { sources: 1, srsAvg: 3 })).toBeNull()
+  })
+
+  it('maps school-year color bands', () => {
+    expect(schoolYearBand({ schoolGrade: 1, inJoyoo: true })).toBe('g1')
+    expect(schoolYearBand({ schoolGrade: 6, inJoyoo: true })).toBe('g6')
+    expect(schoolYearBand({ schoolGrade: null, inJoyoo: true })).toBe('jh')
+    expect(schoolYearBand({ schoolGrade: null, inJoyoo: false })).toBe('other')
+    expect(cellVisualClass('year', input({ schoolGrade: 3, inJoyoo: true }))).toBe('km-year km-g3')
+    expect(cellVisualClass('year', input({ schoolGrade: null, inJoyoo: true }))).toBe('km-year km-jh')
+    expect(cellVisualClass('year', input({ inJoyoo: false }))).toBe('km-year km-other')
+  })
+
+  it('paints every cell the same grey in none mode', () => {
+    expect(cellVisualClass('none', input({ schoolGrade: 1, inJoyoo: true, inWanikani: false }))).toBe(
+      'km-srs km-unstudied'
+    )
+    expect(cellVisualClass('none', input({
+      inWanikani: true,
+      sources: SOURCE_WANIKANI,
+      srsAvg: 9
+    }))).toBe('km-srs km-unstudied')
   })
 
   it('returns distinct backgrounds for modes', () => {

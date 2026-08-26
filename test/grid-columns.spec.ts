@@ -10,13 +10,18 @@ import {
 } from '../shared/utils/grid-columns'
 
 describe('grid-columns', () => {
-  it('defaults to 40 and lists 25–70 by fives', () => {
+  it('defaults to 40 and lists 10–70 including mobile-friendly densities', () => {
     expect(DEFAULT_GRID_COLUMNS).toBe(40)
-    expect([...GRID_COLUMN_OPTIONS]).toEqual([25, 30, 35, 40, 45, 50, 55, 60, 65, 70])
+    expect([...GRID_COLUMN_OPTIONS]).toEqual([
+      10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70
+    ])
   })
 
   it('validates column counts', () => {
     expect(isGridColumnCount(40)).toBe(true)
+    expect(isGridColumnCount(10)).toBe(true)
+    expect(isGridColumnCount(15)).toBe(true)
+    expect(isGridColumnCount(20)).toBe(true)
     expect(isGridColumnCount(25)).toBe(true)
     expect(isGridColumnCount(70)).toBe(true)
     expect(isGridColumnCount(42)).toBe(false)
@@ -26,7 +31,8 @@ describe('grid-columns', () => {
   it('steps columns for zoom in/out', () => {
     expect(stepGridColumns(40, -1)).toBe(35)
     expect(stepGridColumns(40, 1)).toBe(45)
-    expect(stepGridColumns(25, -1)).toBe(25)
+    expect(stepGridColumns(10, -1)).toBe(10)
+    expect(stepGridColumns(15, -1)).toBe(10)
     expect(stepGridColumns(70, 1)).toBe(70)
     expect(stepGridColumns(42, -1)).toBe(35)
   })

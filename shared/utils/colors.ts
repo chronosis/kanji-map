@@ -29,6 +29,30 @@ export interface CellVisualInput {
    * (not merely “has a progress row with SRS > 0”).
    */
   inWanikani: boolean
+  /** Stroke count for stroke-count heatmap coloring. */
+  strokes?: number | null
+  /** Distinct reading count for reading-count heatmap coloring. */
+  readingCount?: number
+  /** WaniKani subject level 1–60 when known from the catalog. */
+  wkLevel?: number | null
+}
+
+/** Official WaniKani kanji level ceiling (used for level heatmap scaling). */
+export const WANIKANI_MAX_LEVEL = 60
+
+export interface HeatmapScale {
+  maxStrokes: number
+  maxReadingCount: number
+}
+
+/**
+ * Map a count onto the accuracy heatmap scale:
+ * `pct = (1 - count / max) * 100` — highest counts → 0% (purple), lowest → 100% (green).
+ */
+export function invertedCountHeatmapPct(count: number, max: number): number {
+  if (max <= 0) return 100
+  const ratio = Math.min(1, Math.max(0, count / max))
+  return (1 - ratio) * 100
 }
 
 /** Curriculum list: MEXT 小1–6 and/or 常用漢字 (jōyō). */
@@ -112,7 +136,101 @@ export function srsBand(srsAvg: number | null): SrsBand {
   return 'burned'
 }
 
-export function cellVisualClass(mode: ColorMode, input: CellVisualInput): string {
+/** Hex fills matching `.km-srs.*` in `app/assets/css/main.css`. */
+export const SRS_BAND_COLORS: Readonly<Record<SrsBand, string>> = {
+  unstudied: '#a3a3a3',
+  locked: '#a3a3a3',
+  untracked: '#737373',
+  apprentice: '#fca5a5',
+  guru: '#fbbf24',
+  master: '#4ade80',
+  enlightened: '#22d3ee',
+  burned: '#818cf8'
+}
+
+/** Text / fill color for an averaged SRS stage (same palette as map SRS mode). */
+export function srsBandColor(srsAvg: number | null): string {
+  return SRS_BAND_COLORS[srsBand(srsAvg)]
+}
+
+/**
+ * Text color for accuracy % (same palette as the accuracy heatmap).
+ * Null when accuracy is not displayable (`--`).
+ */
+export function accuracyTextColor(
+  accuracyAvg: number | null,
+  options?: { sources?: number, srsAvg?: number | null }
+): string | null {
+  const effective = options
+    ? sortableAccuracy(accuracyAvg, options.sources ?? 0, options.srsAvg ?? null)
+    : accuracyAvg
+  if (effective == null) return null
+  return accuracyHeatmapColor(effective)
+}
+
+/** School-year / jōyō band for the year color mode. */
+export type SchoolYearBand
+  = 'g1'
+    | 'g2'
+    | 'g3'
+    | 'g4'
+    | 'g5'
+    | 'g6'
+    | 'jh'
+    | 'other'
+
+export function schoolYearBand(
+  input: Pick<CellVisualInput, 'schoolGrade' | 'inJoyoo'>
+): SchoolYearBand {
+  if (input.schoolGrade === 1) return 'g1'
+  if (input.schoolGrade === 2) return 'g2'
+  if (input.schoolGrade === 3) return 'g3'
+  if (input.schoolGrade === 4) return 'g4'
+  if (input.schoolGrade === 5) return 'g5'
+  if (input.schoolGrade === 6) return 'g6'
+  if (input.inJoyoo) return 'jh'
+  return 'other'
+}
+
+export function cellVisualClass(
+  mode: ColorMode,
+  input: CellVisualInput,
+  scale?: HeatmapScale
+): string {
+  if (mode === 'none') {
+    return 'km-srs km-unstudied'
+  }
+
+  if (mode === 'year') {
+    return `km-year km-${schoolYearBand(input)}`
+  }
+
+  if (mode === 'strokes') {
+    if (input.strokes == null || !scale || scale.maxStrokes <= 0) {
+      return isUntracked(input) ? 'km-srs km-untracked' : 'km-srs km-unstudied'
+    }
+    const pct = invertedCountHeatmapPct(input.strokes, scale.maxStrokes)
+    return `km-acc km-acc-${accuracyHeatmapBucket(pct)}`
+  }
+
+  if (mode === 'readings') {
+    if (!scale || scale.maxReadingCount <= 0) {
+      return isUntracked(input) ? 'km-srs km-untracked' : 'km-srs km-unstudied'
+    }
+    const pct = invertedCountHeatmapPct(input.readingCount ?? 0, scale.maxReadingCount)
+    return `km-acc km-acc-${accuracyHeatmapBucket(pct)}`
+  }
+
+  if (mode === 'wk') {
+    const level = input.wkLevel
+    if (level == null || level <= 0) {
+      return isUntracked(input) ? 'km-srs km-untracked' : 'km-srs km-unstudied'
+    }
+    // Level 1 → green (early), level 60 → purple (late), same palette as strokes/readings.
+    const pct = invertedCountHeatmapPct(level, WANIKANI_MAX_LEVEL)
+    return `km-acc km-acc-${accuracyHeatmapBucket(pct)}`
+  }
+
   if (hasApiSrs(input.sources, input.srsAvg)) {
     if (mode === 'accuracy') {
       if (input.accuracyAvg == null) return 'km-srs km-unstudied'

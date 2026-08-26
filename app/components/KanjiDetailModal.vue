@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import type { KanjiDetailReading, KanjiDetailResponse, KanjiDetailVocabExample } from '../../shared/types/kanji-detail'
-import { formatAccuracy } from '../../shared/utils/colors'
+import {
+  accuracyTextColor,
+  formatAccuracy,
+  srsBandColor
+} from '../../shared/utils/colors'
 import { schoolYearLabel } from '../../shared/utils/kanji-order'
 import { jishoKanjiUrl } from '../../shared/utils/kanji'
 import {
@@ -103,9 +107,15 @@ const jishoLink = computed(() => {
 const wanikaniLink = computed(() => detail.value?.wanikani?.documentUrl)
 
 const headerMeanings = computed(() => {
-  const meanings = detail.value?.wanikani?.meanings
-  if (!meanings?.length) return null
-  return meanings.map(m => m.meaning).join(', ')
+  const wkMeanings = detail.value?.wanikani?.meanings
+  if (wkMeanings?.length) {
+    return wkMeanings.map(m => m.meaning).join(', ')
+  }
+  const jishoMeanings = detail.value?.jishoMeanings
+  if (!jishoMeanings?.length) return null
+  // Prefer the primary Jisho gloss; fall back to the full comma-joined list.
+  const primary = jishoMeanings.find(m => m.primary)?.meaning
+  return primary ?? jishoMeanings.map(m => m.meaning).join(', ')
 })
 
 /** Preferred WK reading for the header (primary flag, else first reading). */
@@ -113,6 +123,21 @@ const headerPrimaryReading = computed(() => {
   const readings = detail.value?.wanikani?.readings
   if (!readings?.length) return null
   return readings.find(r => r.primary)?.reading ?? readings[0]?.reading ?? null
+})
+
+const srsValueColor = computed(() => {
+  const local = detail.value?.local
+  if (!local || local.srsAvg == null) return null
+  return srsBandColor(local.srsAvg)
+})
+
+const accuracyValueColor = computed(() => {
+  const local = detail.value?.local
+  if (!local) return null
+  return accuracyTextColor(local.accuracyAvg, {
+    sources: local.sources,
+    srsAvg: local.srsAvg
+  })
 })
 
 interface WordSegment {
@@ -350,13 +375,21 @@ function wordSegments(word: string, kanji: string | null): WordSegment[] {
                 >
                   <p class="leading-snug text-muted">
                     SRS Level
-                    <span class="mt-0.5 block font-semibold text-highlighted">
+                    <span
+                      class="mt-0.5 block font-semibold"
+                      :class="srsValueColor ? undefined : 'text-highlighted'"
+                      :style="srsValueColor ? { color: srsValueColor } : undefined"
+                    >
                       {{ detail.local.srsAvg != null ? detail.local.srsAvg.toFixed(1) : '—' }}
                     </span>
                   </p>
                   <p class="mt-3 leading-snug text-muted">
                     Accuracy
-                    <span class="mt-0.5 block font-semibold text-highlighted">
+                    <span
+                      class="mt-0.5 block font-semibold"
+                      :class="accuracyValueColor ? undefined : 'text-highlighted'"
+                      :style="accuracyValueColor ? { color: accuracyValueColor } : undefined"
+                    >
                       {{ formatAccuracy(detail.local.accuracyAvg, {
                         sources: detail.local.sources,
                         srsAvg: detail.local.srsAvg

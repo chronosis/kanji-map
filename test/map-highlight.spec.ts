@@ -25,6 +25,9 @@ function cell(partial: Partial<MapCell> & Pick<MapCell, 'character'>): MapCell {
     radicalSymbol: null,
     radicalForms: [],
     parts: [],
+    readings: [],
+    readingCount: 0,
+    joyoIndex: 0,
     ...partial
   }
 }
@@ -35,6 +38,26 @@ describe('map-highlight', () => {
     radicalSymbol: '言',
     radicalForms: ['訁'],
     parts: ['口', '五', '言']
+  })
+
+  it('matches kana-only queries against readings (on/kun stems)', () => {
+    const go = cell({
+      character: '語',
+      readings: ['ご', 'かた', 'かたる', 'かたらう']
+    })
+    expect(matchesKanjiSearchQuery('ご', go)).toBe(true)
+    expect(matchesKanjiSearchQuery('ゴ', go)).toBe(true)
+    expect(matchesKanjiSearchQuery('かた', go)).toBe(true)
+    expect(matchesKanjiSearchQuery('かたる', go)).toBe(true)
+    expect(matchesKanjiSearchQuery('あ', go)).toBe(false)
+  })
+
+  it('does not use reading match when the query includes kanji', () => {
+    const go = cell({
+      character: '語',
+      readings: ['ご']
+    })
+    expect(matchesKanjiSearchQuery('語ご', go)).toBe(false)
   })
 
   it('matches exact kanji', () => {
