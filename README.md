@@ -15,6 +15,7 @@ Japanese literacy is taught against a national character list (**常用漢字**)
 - Spot **untracked** curriculum kanji (not in WaniKani) vs **unstudied** WK kanji (no positive SRS yet)
 - Reorder the same corpus by literacy structure, lesson order, or real-world frequency
 - Click any cell for meanings, readings, mnemonics, and example words (WaniKani when available; Jisho / BunPro examples as fallbacks), plus a link to Jisho
+- Animated **stroke order** diagrams in the detail modal ([KanjiVG](https://kanjivg.tagaini.net/), CC BY-SA 3.0)
 
 There is **no user auth in v1** — API keys live in `.env` for a personal / self-hosted install. The UI defaults to **light mode** (toggle in the header).
 

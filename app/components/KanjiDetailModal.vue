@@ -343,26 +343,33 @@ function wordSegments(word: string, kanji: string | null): WordSegment[] {
                 </p>
               </section>
 
-              <aside
-                v-if="detail.local"
-                class="w-36 shrink-0 rounded-lg border border-default bg-elevated px-3 py-3 text-sm"
-              >
-                <p class="leading-snug text-muted">
-                  SRS Level
-                  <span class="mt-0.5 block font-semibold text-highlighted">
-                    {{ detail.local.srsAvg != null ? detail.local.srsAvg.toFixed(1) : '—' }}
-                  </span>
-                </p>
-                <p class="mt-3 leading-snug text-muted">
-                  Accuracy
-                  <span class="mt-0.5 block font-semibold text-highlighted">
-                    {{ formatAccuracy(detail.local.accuracyAvg, {
-                      sources: detail.local.sources,
-                      srsAvg: detail.local.srsAvg
-                    }) }}
-                  </span>
-                </p>
-              </aside>
+              <div class="flex shrink-0 items-stretch gap-3">
+                <aside
+                  v-if="detail.local"
+                  class="flex w-36 flex-col justify-center rounded-lg border border-default bg-elevated px-3 py-3 text-sm"
+                >
+                  <p class="leading-snug text-muted">
+                    SRS Level
+                    <span class="mt-0.5 block font-semibold text-highlighted">
+                      {{ detail.local.srsAvg != null ? detail.local.srsAvg.toFixed(1) : '—' }}
+                    </span>
+                  </p>
+                  <p class="mt-3 leading-snug text-muted">
+                    Accuracy
+                    <span class="mt-0.5 block font-semibold text-highlighted">
+                      {{ formatAccuracy(detail.local.accuracyAvg, {
+                        sources: detail.local.sources,
+                        srsAvg: detail.local.srsAvg
+                      }) }}
+                    </span>
+                  </p>
+                </aside>
+
+                <KanjiStrokeOrder
+                  v-if="character"
+                  :character="character"
+                />
+              </div>
             </div>
 
             <div
