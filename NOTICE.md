@@ -21,3 +21,5 @@ Treat JLPT tags as unofficial study aids, not exam guarantees.
 
 - [WaniKani API](https://docs.api.wanikani.com/) — official
 - BunPro frontend API — unofficial, reverse-engineered with BunPro team permission ([community docs](https://github.com/cbullard-dev/bunpro-community-api))
+- [kanjiapi.dev](https://kanjiapi.dev/) — KANJIDIC-derived JSON (nanori / name readings); EDRDG licence
+- [Jisho](https://jisho.org/) — meanings, components, and example words (scraped / unofficial API)

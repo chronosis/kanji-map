@@ -5,8 +5,8 @@ import { SOURCE_WANIKANI } from '../types/kanji'
  * Cell visual bands — see `.ai/memory-bank/decisions/unstudied-vs-untracked.md`.
  *
  * Decision order for grey cells (no positive SRS):
- * 1. Untracked = curriculum (jōyō / 小1–6) AND NOT in the WaniKani kanji catalog
- * 2. Unstudied = everything else without positive SRS (typically in WK at SRS 0)
+ * 1. Untracked = on the map but NOT in the WaniKani kanji catalog
+ * 2. Unstudied = in WK catalog with no positive SRS yet
  */
 export type SrsBand
   = 'unstudied'
@@ -35,6 +35,8 @@ export interface CellVisualInput {
   readingCount?: number
   /** WaniKani subject level 1–60 when known from the catalog. */
   wkLevel?: number | null
+  /** Community JLPT level when known. */
+  jlptLevel?: string | null
 }
 
 /** Official WaniKani kanji level ceiling (used for level heatmap scaling). */
@@ -76,19 +78,17 @@ export function sortableAccuracy(
 }
 
 /**
- * Untracked: on the school/jōyō list but absent from WaniKani’s catalog.
- * These will never receive a WK SRS stage. Visual: neutral-500 + blue outline.
+ * Untracked: on the map but absent from WaniKani’s kanji catalog
+ * (jōyō / school or JLPT-only extras). These will never receive a WK SRS stage.
+ * Visual: neutral-500 + blue outline.
  */
 export function isUntracked(input: CellVisualInput): boolean {
-  return isCurriculum(input) && !input.inWanikani
+  return !input.inWanikani
 }
 
 /**
  * Unstudied: in WaniKani’s catalog (so an SRS stage is possible) but no positive SRS yet.
  * Visual: neutral-400, no blue outline.
- *
- * Note: JLPT-only extras with no WK membership also fall through to the unstudied *style*
- * in `cellVisualClass` (grey, no blue) but are not “unstudied” in the WK sense.
  */
 export function isUnstudied(input: CellVisualInput): boolean {
   return input.inWanikani && !hasApiSrs(input.sources, input.srsAvg)
@@ -192,6 +192,18 @@ export function schoolYearBand(
   return 'other'
 }
 
+/** JLPT band for the jlpt color mode (N5 easiest → N1 hardest). */
+export type JlptColorBand = 'n5' | 'n4' | 'n3' | 'n2' | 'n1' | 'other'
+
+export function jlptBand(jlptLevel: string | null | undefined): JlptColorBand {
+  if (jlptLevel === 'N5') return 'n5'
+  if (jlptLevel === 'N4') return 'n4'
+  if (jlptLevel === 'N3') return 'n3'
+  if (jlptLevel === 'N2') return 'n2'
+  if (jlptLevel === 'N1') return 'n1'
+  return 'other'
+}
+
 export function cellVisualClass(
   mode: ColorMode,
   input: CellVisualInput,
@@ -203,6 +215,10 @@ export function cellVisualClass(
 
   if (mode === 'year') {
     return `km-year km-${schoolYearBand(input)}`
+  }
+
+  if (mode === 'jlpt') {
+    return `km-jlpt km-${jlptBand(input.jlptLevel)}`
   }
 
   if (mode === 'strokes') {

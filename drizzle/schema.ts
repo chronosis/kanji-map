@@ -20,8 +20,10 @@ export const kanjiRef = sqliteTable('kanji_ref', {
   partsJson: text('parts_json'),
   /** JSON array of searchable hiragana readings (on/kun/nanori stems) */
   readingsJson: text('readings_json'),
-  /** Distinct raw reading count for map ordering */
-  readingCount: integer('reading_count').notNull().default(0)
+  /** Distinct on/kun reading-stem count (okurigana collapsed; nanori excluded) */
+  readingCount: integer('reading_count').notNull().default(0),
+  /** JSON array of nanori (name readings) from kanjiapi.dev / Kanjidic */
+  nanoriJson: text('nanori_json')
 })
 
 export const progressWanikani = sqliteTable('progress_wanikani', {

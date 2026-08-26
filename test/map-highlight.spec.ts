@@ -92,6 +92,7 @@ describe('map-highlight', () => {
   it('dims non-matching cells when search is active', () => {
     const filters = {
       highlightGrades: [],
+      highlightJlptLevels: [],
       highlightSrsBands: [],
       highlightWkLevels: [],
       searchQuery: '口'
@@ -176,15 +177,16 @@ describe('map-highlight', () => {
     expect(parseHighlightWkLevelValue('wk:61')).toBeNull()
 
     const withWk = buildHighlightMenuItems({ includeSrs: true, includeWkLevels: true })
-    expect(withWk).toHaveLength(3)
+    expect(withWk).toHaveLength(4)
     expect(withWk[0]?.[0]).toMatchObject({ type: 'label', label: 'School year' })
-    expect(withWk[1]?.[0]).toMatchObject({ type: 'label', label: 'SRS stage' })
-    expect(withWk[2]?.[0]).toMatchObject({ type: 'label', label: 'WaniKani level' })
-    expect(withWk[2]).toHaveLength(61) // label + 60 levels
+    expect(withWk[1]?.[0]).toMatchObject({ type: 'label', label: 'JLPT level' })
+    expect(withWk[2]?.[0]).toMatchObject({ type: 'label', label: 'SRS stage' })
+    expect(withWk[3]?.[0]).toMatchObject({ type: 'label', label: 'WaniKani level' })
+    expect(withWk[3]).toHaveLength(61) // label + 60 levels
 
     const withoutWk = buildHighlightMenuItems({ includeSrs: false, includeWkLevels: false })
-    expect(withoutWk).toHaveLength(1)
-    expect(buildHighlightMenuItems()).toHaveLength(1)
+    expect(withoutWk).toHaveLength(2)
+    expect(buildHighlightMenuItems()).toHaveLength(2)
 
     expect(filterHighlightSelectionForSources(['year:1', 'srs:1-4', 'wk:3'], false)).toEqual(['year:1'])
     expect(filterHighlightSelectionForSources(['year:1', 'srs:1-4', 'wk:3'], true)).toEqual([
@@ -198,20 +200,35 @@ describe('map-highlight', () => {
     const expanded = buildCollapsibleHighlightMenuItems({
       includeSrs: true,
       includeWkLevels: true,
-      collapsed: { year: false, srs: false, wk: false }
+      collapsed: { year: false, jlpt: false, srs: false, wk: false }
     })
     expect(expanded[0]).toHaveLength(8) // header + 7 years
-    expect(expanded[2]).toHaveLength(61) // header + 60 levels
+    expect(expanded[1]).toHaveLength(6) // header + 5 JLPT
+    expect(expanded[3]).toHaveLength(61) // header + 60 levels
 
     const wkCollapsed = buildCollapsibleHighlightMenuItems({
       includeWkLevels: true,
-      collapsed: { year: false, srs: false, wk: true }
+      collapsed: { year: false, jlpt: false, srs: false, wk: true }
     })
-    expect(wkCollapsed[1]).toHaveLength(1)
-    expect(wkCollapsed[1]?.[0]).toMatchObject({
+    expect(wkCollapsed[2]).toHaveLength(1)
+    expect(wkCollapsed[2]?.[0]).toMatchObject({
       isCategoryHeader: true,
       label: 'WaniKani level',
       icon: 'i-lucide-chevron-right'
     })
+  })
+
+  it('ORs JLPT levels and ANDs with other categories', () => {
+    const n5 = cell({
+      character: '火',
+      schoolGrade: 1,
+      jlptLevel: 'N5'
+    })
+    const filters = highlightFiltersFromSelection(['year:1', 'jlpt:N5', 'jlpt:N4'], '')
+    expect(filters.highlightJlptLevels).toEqual(['N5', 'N4'])
+    expect(isMapCellHighlighted(n5, filters)).toBe(true)
+    expect(isMapCellHighlighted({ ...n5, jlptLevel: 'N4' }, filters)).toBe(true)
+    expect(isMapCellHighlighted({ ...n5, jlptLevel: 'N1' }, filters)).toBe(false)
+    expect(isMapCellHighlighted({ ...n5, schoolGrade: 2 }, filters)).toBe(false)
   })
 })

@@ -3,7 +3,7 @@
  */
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { countDistinctRawReadings, normalizeReadingsList } from '../../shared/utils/readings'
+import { countDistinctReadingStems, normalizeReadingsList } from '../../shared/utils/readings'
 
 interface KanjidicEntry {
   readings_on?: string[]
@@ -15,8 +15,9 @@ interface KanjidicEntry {
 export interface KanjidicReadingIndex {
   /** Expanded hiragana forms used for kana search. */
   searchReadings: string[]
-  /** Distinct raw on/kun readings (not stem-expanded). */
+  /** Distinct on/kun reading stems (okurigana collapsed; nanori excluded). */
   readingCount: number
+  /** Raw on/kun readings used for stem counting (no nanori). */
   rawReadings: string[]
 }
 
@@ -39,7 +40,7 @@ export function loadKanjidicReadingIndex(
   for (const [character, info] of Object.entries(source)) {
     const rawReadings = rawReadingsFromEntry(info)
     const searchReadings = normalizeReadingsList(rawReadings)
-    const readingCount = countDistinctRawReadings(rawReadings)
+    const readingCount = countDistinctReadingStems(rawReadings)
     if (searchReadings.length || readingCount > 0) {
       map.set(character, { searchReadings, readingCount, rawReadings })
     }

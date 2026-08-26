@@ -71,14 +71,35 @@ export function readingsMatchQuery(query: string, readings: readonly string[]): 
 }
 
 /**
- * Count distinct raw readings (on/kun/nanori), keeping okurigana dots so
- * かた.る and かた.らう stay separate. Does not expand stems for search.
+ * Collapse a raw Kanjidic/WK reading to its count stem:
+ * strip `!` emphasis, leading/trailing `-` markers, take kana before the first
+ * okurigana `.` (e.g. `い.きる` → `い`, `なま-` → `なま`).
  */
-export function countDistinctRawReadings(raws: readonly string[]): number {
+export function readingStem(raw: string): string | null {
+  let cleaned = raw.replace(/[!！]/g, '').trim()
+  if (!cleaned) return null
+  cleaned = toHiragana(cleaned)
+  cleaned = cleaned.replace(/^-+/u, '').replace(/-+$/u, '')
+  if (!cleaned) return null
+  const beforeDot = cleaned.split('.')[0] ?? ''
+  const stem = beforeDot.replace(/\./g, '').trim()
+  return stem || null
+}
+
+/**
+ * Count distinct on/kun reading stems (okurigana variants collapsed).
+ * Callers must omit nanori from `raws`.
+ */
+export function countDistinctReadingStems(raws: readonly string[]): number {
   const set = new Set<string>()
   for (const raw of raws) {
-    const cleaned = toHiragana(raw.replace(/[!！]/g, '').trim())
-    if (cleaned) set.add(cleaned)
+    const stem = readingStem(raw)
+    if (stem) set.add(stem)
   }
   return set.size
+}
+
+/** @deprecated Prefer {@link countDistinctReadingStems}. */
+export function countDistinctRawReadings(raws: readonly string[]): number {
+  return countDistinctReadingStems(raws)
 }

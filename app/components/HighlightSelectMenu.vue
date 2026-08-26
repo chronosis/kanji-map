@@ -22,7 +22,7 @@ const collapsed = ref<HighlightCollapsedCategories>(defaultHighlightCollapsedCat
 
 const effectiveCollapsed = computed((): HighlightCollapsedCategories => {
   if (searchTerm.value.trim()) {
-    return { year: false, srs: false, wk: false }
+    return { year: false, jlpt: false, srs: false, wk: false }
   }
   return collapsed.value
 })

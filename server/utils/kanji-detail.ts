@@ -6,6 +6,7 @@ import type { KanjiDetailMeaning, KanjiDetailResponse, KanjiDetailVocabExample }
 import { jishoKanjiUrl } from '../../shared/utils/kanji'
 import { fetchJishoWordsForKanji } from '../adapters/jisho'
 import { fetchJishoKanjiMeanings } from '../adapters/jisho-kanji'
+import { fetchKanjiapiNanori } from '../adapters/kanjiapi'
 import { searchBunproVocabForKanji } from '../adapters/bunpro'
 import {
   fetchWanikaniKanjiPrimaryMeaningLookup,
@@ -16,6 +17,7 @@ import {
 import { kanjiRef, progressMerged, progressWanikani } from '../../drizzle/schema'
 import { parseWanikaniMnemonic } from '../../shared/utils/wanikani-mnemonic'
 import { wanikaniReviewStatsLookStale } from '../../shared/utils/wanikani-review-stats'
+import { parseJsonStringArray } from '../../shared/utils/json-arrays'
 import { getDb } from './db'
 import { ensureSchema } from './ensure-schema'
 
@@ -176,6 +178,15 @@ export async function getKanjiDetail(character: string): Promise<KanjiDetailResp
     }
   }
 
+  let nanoriReadings = parseJsonStringArray(ref?.nanoriJson)
+  if (!nanoriReadings.length) {
+    try {
+      nanoriReadings = await fetchKanjiapiNanori(character)
+    } catch {
+      warnings.push('kanjiapi.dev nanori fetch failed')
+    }
+  }
+
   let jishoWords: KanjiDetailVocabExample[] = []
   try {
     jishoWords = await fetchJishoWordsForKanji(character, 8)
@@ -206,6 +217,7 @@ export async function getKanjiDetail(character: string): Promise<KanjiDetailResp
     local,
     wanikani,
     jishoMeanings,
+    nanoriReadings,
     jishoWords,
     bunproWords,
     warnings

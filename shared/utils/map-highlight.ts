@@ -1,5 +1,6 @@
-import type { MapCell } from '../types/kanji'
+import type { JlptLevel, MapCell } from '../types/kanji'
 import { hasApiSrs, WANIKANI_MAX_LEVEL } from './colors'
+import { isJlptLevel } from './kanji-order'
 import { isKanaOnlyQuery, readingsMatchQuery } from './readings'
 
 /** Inclusive SRS band; unstudied is encoded as min=max=-1. */
@@ -13,6 +14,8 @@ export type HighlightGrade = number | 'jh'
 export interface MapHighlightFilters {
   /** Empty = no school-year highlight. Match is OR within the list. */
   highlightGrades: HighlightGrade[]
+  /** Empty = no JLPT highlight. Match is OR within the list. */
+  highlightJlptLevels: JlptLevel[]
   /** Empty = no SRS highlight. Match is OR within the list. */
   highlightSrsBands: HighlightSrsBand[]
   /** Empty = no WK-level highlight. Match is OR within the list. */
@@ -24,6 +27,7 @@ export interface MapHighlightFilters {
 /** Prefixed option values used by the Highlight multi-select. */
 export type HighlightOptionValue
   = | `year:${1 | 2 | 3 | 4 | 5 | 6 | 'jh'}`
+    | `jlpt:${JlptLevel}`
     | `srs:unstudied`
     | `srs:1-4`
     | `srs:5-9`
@@ -40,10 +44,11 @@ export interface HighlightMenuGroup {
   label: string
 }
 
-export type HighlightCategoryId = 'year' | 'srs' | 'wk'
+export type HighlightCategoryId = 'year' | 'jlpt' | 'srs' | 'wk'
 
 export const HIGHLIGHT_CATEGORY_LABELS: Readonly<Record<HighlightCategoryId, string>> = {
   year: 'School year',
+  jlpt: 'JLPT level',
   srs: 'SRS stage',
   wk: 'WaniKani level'
 }
@@ -51,7 +56,7 @@ export const HIGHLIGHT_CATEGORY_LABELS: Readonly<Record<HighlightCategoryId, str
 export type HighlightCollapsedCategories = Record<HighlightCategoryId, boolean>
 
 export function defaultHighlightCollapsedCategories(): HighlightCollapsedCategories {
-  return { year: false, srs: false, wk: true }
+  return { year: false, jlpt: false, srs: false, wk: true }
 }
 
 /** Clickable category header inside the Highlight select menu. */
@@ -72,6 +77,7 @@ export function isHighlightCategoryHeaderValue(
   value: string
 ): value is HighlightCategoryHeaderItem['value'] {
   return value === '__header:year'
+    || value === '__header:jlpt'
     || value === '__header:srs'
     || value === '__header:wk'
 }
@@ -104,6 +110,14 @@ export const HIGHLIGHT_YEAR_OPTIONS: readonly HighlightMenuItem[] = [
   { label: '中学+ (jōyō)', value: 'year:jh' }
 ] as const
 
+export const HIGHLIGHT_JLPT_OPTIONS: readonly HighlightMenuItem[] = [
+  { label: 'N5', value: 'jlpt:N5' },
+  { label: 'N4', value: 'jlpt:N4' },
+  { label: 'N3', value: 'jlpt:N3' },
+  { label: 'N2', value: 'jlpt:N2' },
+  { label: 'N1', value: 'jlpt:N1' }
+] as const
+
 export const HIGHLIGHT_SRS_OPTIONS: readonly HighlightMenuItem[] = [
   { label: 'Unstudied', value: 'srs:unstudied' },
   { label: 'Apprentice (1–4)', value: 'srs:1-4' },
@@ -129,7 +143,7 @@ export function buildHighlightMenuItems(options?: {
 }): HighlightMenuSection[] {
   return buildCollapsibleHighlightMenuItems({
     ...options,
-    collapsed: { year: false, srs: false, wk: false }
+    collapsed: { year: false, jlpt: false, srs: false, wk: false }
   }).map(section => section.map((item) => {
     if ('isCategoryHeader' in item && item.isCategoryHeader) {
       return { type: 'label' as const, label: item.label }
@@ -148,6 +162,10 @@ export function buildCollapsibleHighlightMenuItems(options: {
     [
       highlightCategoryHeaderItem('year', options.collapsed.year),
       ...(options.collapsed.year ? [] : HIGHLIGHT_YEAR_OPTIONS)
+    ],
+    [
+      highlightCategoryHeaderItem('jlpt', options.collapsed.jlpt),
+      ...(options.collapsed.jlpt ? [] : HIGHLIGHT_JLPT_OPTIONS)
     ]
   ]
   if (options.includeSrs === true) {
@@ -174,6 +192,12 @@ export function parseHighlightGradeValue(value: string): HighlightGrade | null {
   return null
 }
 
+export function parseHighlightJlptValue(value: string): JlptLevel | null {
+  if (!value.startsWith('jlpt:')) return null
+  const raw = value.slice('jlpt:'.length)
+  return isJlptLevel(raw) ? raw : null
+}
+
 export function parseHighlightSrsValue(value: string): HighlightSrsBand | null {
   if (!value.startsWith('srs:')) return null
   const raw = value.slice('srs:'.length)
@@ -194,6 +218,7 @@ export function parseHighlightWkLevelValue(value: string): number | null {
 
 function isKnownHighlightOptionValue(value: string): value is HighlightOptionValue {
   return parseHighlightGradeValue(value) != null
+    || parseHighlightJlptValue(value) != null
     || parseHighlightSrsValue(value) != null
     || parseHighlightWkLevelValue(value) != null
 }
@@ -204,9 +229,11 @@ export function highlightFiltersFromSelection(
   searchQuery: string
 ): MapHighlightFilters {
   const highlightGrades: HighlightGrade[] = []
+  const highlightJlptLevels: JlptLevel[] = []
   const highlightSrsBands: HighlightSrsBand[] = []
   const highlightWkLevels: number[] = []
   const seenGrades = new Set<string>()
+  const seenJlpt = new Set<string>()
   const seenSrs = new Set<string>()
   const seenWk = new Set<number>()
 
@@ -217,6 +244,14 @@ export function highlightFiltersFromSelection(
       if (!seenGrades.has(key)) {
         seenGrades.add(key)
         highlightGrades.push(grade)
+      }
+      continue
+    }
+    const jlpt = parseHighlightJlptValue(value)
+    if (jlpt != null) {
+      if (!seenJlpt.has(jlpt)) {
+        seenJlpt.add(jlpt)
+        highlightJlptLevels.push(jlpt)
       }
       continue
     }
@@ -238,6 +273,7 @@ export function highlightFiltersFromSelection(
 
   return {
     highlightGrades,
+    highlightJlptLevels,
     highlightSrsBands,
     highlightWkLevels,
     searchQuery
@@ -261,6 +297,10 @@ export function filterHighlightSelectionForSources(
 function matchesHighlightGrade(cell: MapCell, grade: HighlightGrade): boolean {
   if (grade === 'jh') return cell.inJoyoo && cell.schoolGrade == null
   return cell.schoolGrade === grade
+}
+
+function matchesHighlightJlpt(cell: MapCell, level: JlptLevel): boolean {
+  return cell.jlptLevel === level
 }
 
 function matchesHighlightSrsBand(cell: MapCell, band: HighlightSrsBand): boolean {
@@ -338,6 +378,7 @@ export function matchesKanjiSearchQuery(query: string, target: KanjiSearchTarget
 
 export function hasActiveMapHighlight(filters: MapHighlightFilters): boolean {
   return filters.highlightGrades.length > 0
+    || filters.highlightJlptLevels.length > 0
     || filters.highlightSrsBands.length > 0
     || filters.highlightWkLevels.length > 0
     || normalizeKanjiSearchQuery(filters.searchQuery).length > 0
@@ -346,6 +387,12 @@ export function hasActiveMapHighlight(filters: MapHighlightFilters): boolean {
 export function isMapCellHighlighted(cell: MapCell, filters: MapHighlightFilters): boolean {
   if (filters.highlightGrades.length > 0) {
     if (!filters.highlightGrades.some(grade => matchesHighlightGrade(cell, grade))) {
+      return false
+    }
+  }
+
+  if (filters.highlightJlptLevels.length > 0) {
+    if (!filters.highlightJlptLevels.some(level => matchesHighlightJlpt(cell, level))) {
       return false
     }
   }

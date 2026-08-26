@@ -28,9 +28,11 @@ logs
 # SQLite runtime DB (seeded data JSON is committed; live DB is not)
 data/*.sqlite
 data/*.sqlite-*
+data/*.db
 data/raw/
 *.sqlite
 *.sqlite-*
+*.db
 
 # Coverage / test
 coverage

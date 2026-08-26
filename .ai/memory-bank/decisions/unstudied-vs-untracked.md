@@ -1,13 +1,11 @@
 # Unstudied vs untracked
 
-These names are **exclusive** for curriculum-related greys. Do not confuse “no progress row” with “not in WaniKani.”
+These names are **exclusive** for greys with no positive SRS. Do not confuse “no progress row” with “not in WaniKani.”
 
 | Term | Predicate | Meaning | Visual |
 |------|-----------|---------|--------|
 | **Unstudied** | `inWanikani && !hasPositiveSrs` | Character is in WaniKani’s **kanji subject catalog**, but the learner has no positive SRS yet (SRS 0 / locked / not started). | Neutral-400, **no** blue outline, `--` |
-| **Untracked** | `isCurriculum && !inWanikani` | Character is on the MEXT / 常用漢字 list but **absent from WaniKani’s catalog**, so it will never get a WK SRS. | Neutral-500, **light blue** outline, `--` |
-
-`isCurriculum` = `inJoyoo || schoolGrade != null`.
+| **Untracked** | `!inWanikani` | Character is on the map (jōyō / school **or** JLPT-only extra) but **absent from WaniKani’s catalog**, so it will never get a WK SRS. | Neutral-500, **light blue** outline, `--` |
 
 ## Critical: catalog ≠ assignment
 
@@ -25,7 +23,7 @@ After a correct WK sync you should see on the order of **~2000** WaniKani kanji 
 
 ## CSS classes
 
-- `.km-unstudied` — unstudied (and non-curriculum greys)
+- `.km-unstudied` — unstudied (and other non-untracked greys)
 - `.km-untracked` — untracked
 
 ## WK order mode

@@ -67,7 +67,8 @@ export async function ensureSchema(databasePath = process.env.DATABASE_PATH || '
     'radical_forms_json TEXT',
     'parts_json TEXT',
     'readings_json TEXT',
-    'reading_count INTEGER NOT NULL DEFAULT 0'
+    'reading_count INTEGER NOT NULL DEFAULT 0',
+    'nanori_json TEXT'
   ]) {
     try {
       await client.execute(`ALTER TABLE kanji_ref ADD COLUMN ${col}`)

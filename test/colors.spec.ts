@@ -15,6 +15,7 @@ import {
   accuracyBackground,
   invertedCountHeatmapPct,
   schoolYearBand,
+  jlptBand,
   srsBand,
   srsBandColor,
   srsBackground,
@@ -91,7 +92,8 @@ describe('colors', () => {
     expect(cellVisualClass('strokes', input({ strokes: 20 }), scale)).toBe('km-acc km-acc-0')
     expect(cellVisualClass('strokes', input({ strokes: 10 }), scale)).toBe('km-acc km-acc-16')
     expect(cellVisualClass('strokes', input({ strokes: 0 }), scale)).toBe('km-acc km-acc-33')
-    expect(cellVisualClass('strokes', input({ strokes: null }), scale)).toContain('km-unstudied')
+    expect(cellVisualClass('strokes', input({ strokes: null }), scale)).toContain('km-untracked')
+    expect(cellVisualClass('strokes', input({ strokes: null, inWanikani: true }), scale)).toContain('km-unstudied')
 
     expect(cellVisualClass('readings', input({ readingCount: 4 }), scale)).toBe('km-acc km-acc-0')
     expect(cellVisualClass('readings', input({ readingCount: 2 }), scale)).toBe('km-acc km-acc-16')
@@ -104,7 +106,7 @@ describe('colors', () => {
     expect(cellVisualClass('wk', input({ wkLevel: 1 }))).toBe(
       `km-acc km-acc-${accuracyHeatmapBucket(invertedCountHeatmapPct(1, 60))}`
     )
-    expect(cellVisualClass('wk', input({ wkLevel: null }))).toContain('km-unstudied')
+    expect(cellVisualClass('wk', input({ wkLevel: null, inWanikani: true }))).toContain('km-unstudied')
     expect(cellVisualClass('wk', input({
       wkLevel: null,
       inJoyoo: true,
@@ -141,6 +143,16 @@ describe('colors', () => {
     expect(cellVisualClass('year', input({ inJoyoo: false }))).toBe('km-year km-other')
   })
 
+  it('maps JLPT levels onto discrete color bands', () => {
+    expect(jlptBand('N5')).toBe('n5')
+    expect(jlptBand('N1')).toBe('n1')
+    expect(jlptBand(null)).toBe('other')
+    expect(cellVisualClass('jlpt', input({ jlptLevel: 'N5' }))).toBe('km-jlpt km-n5')
+    expect(cellVisualClass('jlpt', input({ jlptLevel: 'N3' }))).toBe('km-jlpt km-n3')
+    expect(cellVisualClass('jlpt', input({ jlptLevel: 'N1' }))).toBe('km-jlpt km-n1')
+    expect(cellVisualClass('jlpt', input({ jlptLevel: null }))).toBe('km-jlpt km-other')
+  })
+
   it('paints every cell the same grey in none mode', () => {
     expect(cellVisualClass('none', input({ schoolGrade: 1, inJoyoo: true, inWanikani: false }))).toBe(
       'km-srs km-unstudied'
@@ -159,17 +171,26 @@ describe('colors', () => {
     expect(cellBackground('accuracy', 9, null)).toContain('km-unstudied')
   })
 
-  it('classifies untracked vs unstudied from inWanikani + curriculum', () => {
+  it('classifies untracked vs unstudied from inWanikani', () => {
     expect(hasApiSrs(0, null)).toBe(false)
     expect(hasApiSrs(1, 0)).toBe(false)
     expect(hasApiSrs(1, 2)).toBe(true)
 
-    // Untracked: jōyō / school, NOT in WK catalog → blue outline
+    // Untracked: not in WK catalog (jōyō or JLPT-only) → blue outline
     const untracked = input({ inJoyoo: true, schoolGrade: 1, inWanikani: false })
     expect(isUntracked(untracked)).toBe(true)
     expect(isUnstudied(untracked)).toBe(false)
     expect(cellVisualClass('srs', untracked)).toContain('km-untracked')
     expect(cellVisualClass('srs', untracked)).not.toContain('km-unstudied')
+
+    const jlptOnlyUntracked = input({
+      inJoyoo: false,
+      schoolGrade: null,
+      jlptLevel: 'N1',
+      inWanikani: false
+    })
+    expect(isUntracked(jlptOnlyUntracked)).toBe(true)
+    expect(cellVisualClass('srs', jlptOnlyUntracked)).toContain('km-untracked')
 
     // Unstudied: in WK catalog, SRS 0 → grey, NO blue
     const unstudied = input({
@@ -192,13 +213,6 @@ describe('colors', () => {
       sources: SOURCE_WANIKANI,
       srsAvg: 5
     }))).toContain('km-guru')
-
-    // Non-curriculum, not in WK → grey unstudied style (not blue)
-    expect(cellVisualClass('srs', input({
-      inJoyoo: false,
-      schoolGrade: null,
-      inWanikani: false
-    }))).toContain('km-unstudied')
   })
 
   it('omits map filter categories from the grid', () => {

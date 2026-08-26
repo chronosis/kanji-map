@@ -64,7 +64,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 function readingGroups(detailValue: KanjiDetailResponse) {
   const readings = detailValue.wanikani?.readings ?? []
   const groups: Array<{ label: string, readings: KanjiDetailReading[] }> = []
-  for (const type of ['onyomi', 'kunyomi', 'nanori', 'other'] as const) {
+  for (const type of ['onyomi', 'kunyomi', 'other'] as const) {
     const typeReadings = readings.filter(r => r.type === type)
     if (typeReadings.length) {
       groups.push({
@@ -73,6 +73,19 @@ function readingGroups(detailValue: KanjiDetailResponse) {
       })
     }
   }
+
+  // Prefer kanjiapi.dev / Kanjidic nanori (WK nanori lists are inconsistent).
+  const nanori = detailValue.nanoriReadings?.length
+    ? detailValue.nanoriReadings.map(reading => ({
+        reading,
+        type: 'nanori' as const,
+        primary: false
+      }))
+    : readings.filter(r => r.type === 'nanori')
+  if (nanori.length) {
+    groups.push({ label: 'Nanori', readings: nanori })
+  }
+
   return groups
 }
 
@@ -366,6 +379,24 @@ function wordSegments(word: string, kanji: string | null): WordSegment[] {
                   {{ wkMeaningAttempts(detail.local) }}, reading {{ detail.local.readingIncorrect ?? 0 }} wrong of
                   {{ wkReadingAttempts(detail.local) }}
                 </p>
+              </section>
+
+              <section
+                v-else-if="detail.nanoriReadings?.length"
+                class="min-w-0 flex-1 space-y-3"
+              >
+                <h2 class="text-sm font-semibold text-highlighted">
+                  Readings
+                </h2>
+                <div class="space-y-1">
+                  <p class="text-sm">
+                    <span class="text-muted">Nanori: </span>
+                    {{ detail.nanoriReadings.join(' · ') }}
+                  </p>
+                  <p class="text-xs text-muted">
+                    Name readings from kanjiapi.dev / Kanjidic
+                  </p>
+                </div>
               </section>
 
               <div class="flex shrink-0 items-stretch gap-3">

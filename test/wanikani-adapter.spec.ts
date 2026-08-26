@@ -77,7 +77,8 @@ describe('wanikani adapter parsing', () => {
       meaningIncorrect: 2,
       readingCorrect: 9,
       readingIncorrect: 1,
-      readings: ['にち']
+      readings: ['にち'],
+      onKunReadings: ['にち']
     })
     expect(rows.find(r => r.character === '月')).toMatchObject({
       character: '月',
@@ -86,7 +87,46 @@ describe('wanikani adapter parsing', () => {
       apiOrder: 1,
       srsStage: 0,
       accuracyPct: null,
-      readings: ['げつ']
+      readings: ['げつ'],
+      onKunReadings: ['げつ']
+    })
+  })
+
+  it('excludes nanori from onKunReadings but keeps them in readings', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (url: string) => {
+      const u = String(url)
+      if (u.includes('/subjects')) {
+        return {
+          ok: true,
+          json: async () => ({
+            pages: { next_url: null },
+            data: [{
+              id: 1,
+              data: {
+                characters: '生',
+                level: 3,
+                readings: [
+                  { reading: 'せい', type: 'onyomi' },
+                  { reading: 'い', type: 'kunyomi' },
+                  { reading: 'あさ', type: 'nanori' }
+                ]
+              }
+            }]
+          })
+        }
+      }
+      if (u.includes('/assignments') || u.includes('/review_statistics')) {
+        return { ok: true, json: async () => ({ pages: { next_url: null }, data: [] }) }
+      }
+      return { ok: false, status: 404, statusText: 'nope' }
+    }))
+
+    const { fetchWanikaniKanjiProgress } = await import('../server/adapters/wanikani')
+    const rows = await fetchWanikaniKanjiProgress('fake-key')
+    expect(rows[0]).toMatchObject({
+      character: '生',
+      readings: ['せい', 'い', 'あさ'],
+      onKunReadings: ['せい', 'い']
     })
   })
 

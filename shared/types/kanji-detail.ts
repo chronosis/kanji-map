@@ -92,6 +92,11 @@ export interface KanjiDetailResponse {
    * (no API key, untracked kanji, or WK subject missing).
    */
   jishoMeanings: KanjiDetailMeaning[]
+  /**
+   * Nanori (name readings) from kanjiapi.dev / Kanjidic.
+   * Preferred over WaniKani nanori when present (WK lists are inconsistent).
+   */
+  nanoriReadings: string[]
   jishoWords: KanjiDetailVocabExample[]
   bunproWords: KanjiDetailVocabExample[]
   warnings: string[]

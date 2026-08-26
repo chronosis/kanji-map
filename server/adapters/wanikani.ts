@@ -23,6 +23,8 @@ export interface WanikaniKanjiProgress {
   readingIncorrect: number
   /** Raw WK readings (onyomi / kunyomi / nanori) for search indexing. */
   readings: string[]
+  /** On/kun only — used for map reading-count stems (excludes nanori). */
+  onKunReadings: string[]
 }
 
 interface WkCollection<T> {
@@ -162,7 +164,11 @@ export async function fetchWanikaniKanjiProgress(apiKey: string): Promise<Wanika
       meaningIncorrect,
       readingCorrect,
       readingIncorrect,
-      readings: (s.data.readings ?? []).map(r => r.reading).filter(Boolean)
+      readings: (s.data.readings ?? []).map(r => r.reading).filter(Boolean),
+      onKunReadings: (s.data.readings ?? [])
+        .filter(r => r.type !== 'nanori')
+        .map(r => r.reading)
+        .filter(Boolean)
     })
     apiOrder++
   }

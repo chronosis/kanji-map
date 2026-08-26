@@ -175,21 +175,15 @@ watch(mapFilter, () => {
   <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-hidden">
     <div class="shrink-0 flex flex-wrap items-end justify-between gap-3">
       <div class="flex flex-wrap items-end gap-3">
-        <UFormField label="Order">
-          <USelect
-            v-model="orderMode"
-            :items="orderModeItems"
-            value-key="value"
-            class="w-52"
-          />
-        </UFormField>
-
-        <UFormField label="Color mode">
-          <USelect
-            v-model="colorMode"
-            :items="colorModeItems"
-            value-key="value"
-            class="w-48"
+        <UFormField label="Search">
+          <UInput
+            v-model="kanjiSearch"
+            name="kanjiSearchQuery"
+            placeholder="Radical, kanji, or reading…"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+            class="w-[13.5rem] font-medium"
           />
         </UFormField>
 
@@ -210,52 +204,61 @@ watch(mapFilter, () => {
           />
         </UFormField>
 
-        <div class="flex gap-1">
+        <UTooltip text="Help">
           <UButton
-            icon="i-lucide-zoom-in"
+            icon="i-lucide-circle-help"
             color="neutral"
             variant="soft"
-            aria-label="Zoom in"
-            @click="gridRef?.zoomIn()"
+            aria-label="Help"
+            @click="helpOpen = true"
           />
-          <UButton
-            icon="i-lucide-zoom-out"
-            color="neutral"
-            variant="soft"
-            aria-label="Zoom out"
-            @click="gridRef?.zoomOut()"
-          />
-          <UTooltip text="Fit map to view">
-            <UButton
-              icon="i-lucide-locate"
-              color="neutral"
-              variant="soft"
-              aria-label="Fit map to view"
-              @click="gridRef?.resetView()"
-            />
-          </UTooltip>
-          <UTooltip text="Help">
-            <UButton
-              icon="i-lucide-circle-help"
-              color="neutral"
-              variant="soft"
-              aria-label="Help"
-              @click="helpOpen = true"
-            />
-          </UTooltip>
-        </div>
+        </UTooltip>
       </div>
 
       <div class="flex flex-wrap items-end gap-3">
-        <UFormField label="Search">
-          <UInput
-            v-model="kanjiSearch"
-            name="kanjiSearchQuery"
-            placeholder="Radical, kanji, or reading…"
-            autocomplete="off"
-            autocorrect="off"
-            spellcheck="false"
-            class="w-[13.5rem] font-medium"
+        <UFormField label="Controls">
+          <div class="flex gap-1">
+            <UButton
+              icon="i-lucide-zoom-in"
+              color="neutral"
+              variant="soft"
+              aria-label="Zoom in"
+              @click="gridRef?.zoomIn()"
+            />
+            <UButton
+              icon="i-lucide-zoom-out"
+              color="neutral"
+              variant="soft"
+              aria-label="Zoom out"
+              @click="gridRef?.zoomOut()"
+            />
+            <UTooltip text="Fit map to view">
+              <UButton
+                icon="i-lucide-locate"
+                color="neutral"
+                variant="soft"
+                aria-label="Fit map to view"
+                @click="gridRef?.resetView()"
+              />
+            </UTooltip>
+          </div>
+        </UFormField>
+
+        <UFormField label="Order">
+          <USelect
+            v-model="orderMode"
+            :items="orderModeItems"
+            value-key="value"
+            class="w-52"
+          />
+        </UFormField>
+
+        <UFormField label="Color mode">
+          <USelect
+            v-model="colorMode"
+            :items="colorModeItems"
+            value-key="value"
+            class="w-48"
           />
         </UFormField>
 

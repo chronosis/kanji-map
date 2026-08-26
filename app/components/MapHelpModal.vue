@@ -21,6 +21,15 @@ const yearLegend = [
   { label: 'Other', className: 'km-year km-other' }
 ] as const
 
+const jlptLegend = [
+  { label: 'N5', className: 'km-jlpt km-n5' },
+  { label: 'N4', className: 'km-jlpt km-n4' },
+  { label: 'N3', className: 'km-jlpt km-n3' },
+  { label: 'N2', className: 'km-jlpt km-n2' },
+  { label: 'N1', className: 'km-jlpt km-n1' },
+  { label: 'None', className: 'km-jlpt km-other' }
+] as const
+
 const srsLegend = [
   { label: 'Apprentice', className: 'km-srs km-apprentice' },
   { label: 'Guru', className: 'km-srs km-guru' },
@@ -31,7 +40,7 @@ const srsLegend = [
 
 const statusLegend = [
   { label: 'Unstudied', className: 'km-srs km-unstudied', note: 'In WaniKani, no positive SRS yet' },
-  { label: 'Untracked', className: 'km-srs km-untracked', note: 'Jōyō / school, not in WaniKani' }
+  { label: 'Untracked', className: 'km-srs km-untracked', note: 'On the map, not in WaniKani' }
 ] as const
 </script>
 
@@ -98,7 +107,7 @@ const statusLegend = [
               </li>
               <li>
                 <span class="font-medium text-highlighted">Bottom-left</span>
-                — number of distinct readings (on + kun + nanori).
+                — number of distinct on/kun reading stems (okurigana variants collapsed; nanori excluded).
               </li>
               <li v-if="wanikaniConfigured !== false">
                 <span class="font-medium text-highlighted">Bottom-right</span>
@@ -128,6 +137,25 @@ const statusLegend = [
               <div class="flex flex-wrap gap-2">
                 <div
                   v-for="item in yearLegend"
+                  :key="item.label"
+                  class="flex items-center gap-1.5"
+                >
+                  <span
+                    class="inline-block size-5 shrink-0 rounded-sm"
+                    :class="item.className"
+                  />
+                  <span class="text-muted">{{ item.label }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <h4 class="text-xs font-semibold uppercase tracking-wide text-muted">
+                JLPT level
+              </h4>
+              <div class="flex flex-wrap gap-2">
+                <div
+                  v-for="item in jlptLegend"
                   :key="item.label"
                   class="flex items-center gap-1.5"
                 >
@@ -207,7 +235,7 @@ const statusLegend = [
               7–12 kanji year table.
             </p>
             <p class="text-muted">
-              Light blue outline = untracked (jōyō/school, not in WaniKani).
+              Light blue outline = untracked (on the map, not in WaniKani).
               Lighter grey without outline = unstudied (in WaniKani, no positive SRS yet).
             </p>
             <div class="flex flex-wrap gap-3 pt-1">

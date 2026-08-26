@@ -25,6 +25,7 @@ export const KANJI_FONT_STYLE_ITEMS: ReadonlyArray<{ label: string, value: Kanji
 
 export const ALL_ORDER_MODE_ITEMS: ReadonlyArray<{ label: string, value: OrderMode }> = [
   { label: 'Jōyō appearance', value: 'joyo' },
+  { label: 'JLPT level', value: 'jlpt' },
   { label: 'WaniKani order', value: 'wk' },
   { label: 'SRS stage', value: 'srs' },
   { label: 'Usage (frequency)', value: 'usage' },
@@ -36,6 +37,7 @@ export const ALL_ORDER_MODE_ITEMS: ReadonlyArray<{ label: string, value: OrderMo
 export const ALL_COLOR_MODE_ITEMS: ReadonlyArray<{ label: string, value: ColorMode }> = [
   { label: '--', value: 'none' },
   { label: 'School year', value: 'year' },
+  { label: 'JLPT level', value: 'jlpt' },
   { label: 'SRS stage', value: 'srs' },
   { label: 'Accuracy heatmap', value: 'accuracy' },
   { label: 'WaniKani level', value: 'wk' },

@@ -2,7 +2,7 @@
 
 Personal Nuxt 4 + Nuxt UI app that maps **WaniKani** and **BunPro** mastery onto a pannable grid of **常用漢字 (jōyō) + community JLPT kanji**.
 
-![Kanji Map — Jōyō appearance order (light mode)](docs/screenshots/order-joyo.png)
+![Kanji Map — toolbar and Jōyō order with SRS coloring](docs/screenshots/overview-toolbar.png)
 
 ## Purpose
 
@@ -11,55 +11,93 @@ Japanese literacy is taught against a national character list (**常用漢字**)
 **Kanji Map** answers: *where am I on the school / jōyō list, relative to my SRS progress?*
 
 - Visualize every tracked character in one scrollable map
-- Color by **SRS stage** or **review accuracy** (WaniKani + BunPro merged)
-- Spot **untracked** curriculum kanji (not in WaniKani) vs **unstudied** WK kanji (no positive SRS yet)
-- Reorder the same corpus by literacy structure, lesson order, or real-world frequency
-- Click any cell for meanings, readings, mnemonics, and example words (WaniKani when available; Jisho / BunPro examples as fallbacks), plus a link to Jisho
-- Animated **stroke order** diagrams in the detail modal ([KanjiVG](https://kanjivg.tagaini.net/), CC BY-SA 3.0)
+- Color by **school year**, **JLPT level**, **SRS stage**, **review accuracy**, **WaniKani level**, **stroke count**, or **reading count** (or turn coloring off)
+- Spot **untracked** kanji (on the map but not in WaniKani) vs **unstudied** WK kanji (no positive SRS yet)
+- Reorder the same corpus by literacy structure, JLPT level, lesson order, SRS, accuracy, frequency, readings, or strokes
+- **Highlight** by school year, JLPT level, SRS band, and/or WK level (OR within a category, AND across)
+- Click any cell for meanings, readings (including **nanori** from [kanjiapi.dev](https://kanjiapi.dev/)), mnemonics, stroke order, and example words
+- Cookie-backed **Settings** for kanji font (Gothic / Mincho / Calligraphic) and default order / color mode
 
 There is **no user auth in v1** — API keys live in `.env` for a personal / self-hosted install. The UI defaults to **light mode** (toggle in the header).
 
+![Dark mode overview](docs/screenshots/overview-dark.png)
+
+## Toolbar layout
+
+Controls are split left / right:
+
+| Side | Controls |
+|------|----------|
+| **Left** | **Search** · **Highlight** · **Filters** · **Help** (?) |
+| **Right** | **Controls** (zoom / fit) · **Order** · **Color mode** · **Columns** |
+
+Header (always): **Sync APIs** · theme toggle · **Settings** (gear).
+
 ## Ordering modes
 
-The **Order** control only changes cell sequence on the grid. Colors and filters stay the same. Screenshots below are light mode, SRS coloring, 40 columns.
+**Order** only changes cell sequence. Colors and filters stay the same. Screenshots below use light mode, **SRS stage** coloring, and 40 columns unless noted.
 
 ### Jōyō appearance (default)
 
-Curriculum-first layout: **常用漢字** ordered by elementary school year (小1→小6), then remaining jōyō (中学+) by stroke count, then non-jōyō JLPT extras. Use this when you care about school / literacy coverage.
+Curriculum-first layout: **常用漢字** by elementary school year (小1→小6), then remaining jōyō (中学+) by stroke count, then non-jōyō JLPT extras.
 
 ![Jōyō appearance ordering](docs/screenshots/order-joyo.png)
 
+### JLPT level
+
+Unofficial community JLPT tags: **N5 → N4 → N3 → N2 → N1**, then characters with no JLPT tag (unranked). Ties break with jōyō appearance.
+
+![JLPT level ordering](docs/screenshots/order-jlpt.png)
+
 ### WaniKani order
 
-Lesson order from WaniKani’s kanji catalog: **WK level → API appearance order**. Characters on the jōyō/school list that are **not** in WaniKani sort at the end (untracked). Use this to follow your SRS queue spatially.
+Lesson order from WaniKani’s kanji catalog: **WK level → API appearance order**. Characters **not** in WaniKani sort at the end (untracked).
 
 ![WaniKani ordering](docs/screenshots/order-wanikani.png)
 
+### SRS stage
+
+Highest averaged SRS first; unstudied / untracked last. Requires a WaniKani API key.
+
+![SRS stage ordering](docs/screenshots/order-srs.png)
+
 ### Usage (frequency)
 
-Newspaper / corpus **frequency rank** (lower rank = more common first). Use this to prioritize high-utility characters independent of school year or WK level.
+Newspaper / corpus **frequency rank** (lower rank = more common first).
 
 ![Usage frequency ordering](docs/screenshots/order-usage.png)
 
+### Accuracy
+
+Highest review accuracy first. Requires a WaniKani API key.
+
+![Accuracy ordering](docs/screenshots/order-accuracy.png)
+
 ### Number of readings
 
-Most readings first (onyomi + kunyomi + nanori; missing data counts as 0), then the same jōyō appearance tie-break as above.
+Most distinct on/kun reading stems first (okurigana variants collapsed; nanori excluded; missing data counts as 0), then the same jōyō appearance tie-break as above.
+
+![Number of readings ordering](docs/screenshots/order-readings.png)
 
 ### Stroke count
 
 Fewest strokes first (unknown stroke counts last), then jōyō appearance.
 
+![Stroke count ordering](docs/screenshots/order-strokes.png)
+
 ## Color modes
 
-**Color mode** paints each cell. The default **--** mode uses uniform grey (no color encoding). **School year** colors by MEXT year / 中学+. Progress modes (SRS, accuracy, WaniKani level) require a configured WaniKani API key. Untracked and unstudied greys apply in SRS/accuracy modes (blue outline = untracked).
+**Color mode** paints each cell. Default **--** uses uniform grey. Progress modes (SRS, accuracy, WaniKani level) require a configured WaniKani API key. In SRS/accuracy modes: blue outline = **untracked**; lighter grey without outline = **unstudied**.
+
+Screenshots below use **Jōyō appearance** order and 40 columns.
 
 ### -- (none, default)
 
-Every cell uses the same neutral grey. Corner labels and highlights still work; only background color encoding is turned off.
+Every cell uses the same neutral grey. Corner labels and highlights still work.
+
+![Uniform grey color mode](docs/screenshots/color-none.png)
 
 ### School year
-
-Colors follow the same family as SRS stage bands:
 
 | Band | Color |
 |------|--------|
@@ -67,20 +105,33 @@ Colors follow the same family as SRS stage bands:
 | 中学+ (jōyō) | Indigo |
 | Non-jōyō extras | Grey |
 
+![School year coloring](docs/screenshots/color-year.png)
+
+### JLPT level
+
+Unofficial community JLPT tags (N5 easiest → N1 hardest). Characters without a JLPT tag stay grey.
+
+| Band | Color |
+|------|--------|
+| N5–N1 | Red → orange → amber → green → indigo |
+| No JLPT tag | Grey |
+
+![JLPT level coloring](docs/screenshots/color-jlpt.png)
+
 ### SRS stage
 
 Bands follow the WaniKani-style stage scale (BunPro stages normalized to 0–9): apprentice → guru → master → enlightened → burned.
 
+![SRS stage coloring](docs/screenshots/color-srs.png)
+
 ### Accuracy heatmap
 
-Cell color is **review accuracy %** (0–100), not SRS stage. Colors advance in **3% steps**, with RGB interpolation between these anchors:
+Cell color is **review accuracy %** (0–100) in **3% steps**, with RGB interpolation between anchors:
 
 | Range | Colors |
 |-------|--------|
 | **100% → 50%** | Green → lime → yellow → **red** |
 | **50% → 0%** | **Red** → magenta (~25%) → **purple** (~0%) |
-
-Grey cells still mean unstudied / untracked (no accuracy to plot). The percentage in the cell corner is the same value driving the color.
 
 ![Accuracy heatmap — Jōyō order](docs/screenshots/color-accuracy-joyo.png)
 
@@ -88,15 +139,87 @@ Grey cells still mean unstudied / untracked (no accuracy to plot). The percentag
 
 ### WaniKani level
 
-Uses the same green→purple scale as accuracy. Level **1** maps to green; level **60** maps to purple (`pct = (1 − level / 60) × 100`). Kanji not in the WaniKani catalog stay grey (blue outline when untracked).
+Same green→purple scale as accuracy. Level **1** → green; level **60** → purple (`pct = (1 − level / 60) × 100`). Catalog-missing kanji stay grey (blue outline when untracked).
+
+![WaniKani level coloring](docs/screenshots/color-wk.png)
 
 ### Stroke count / reading count heatmaps
 
-Uses the same green→purple scale as accuracy. For each cell:
+Same green→purple scale. For each cell:
 
 `pct = (1 − count / max) × 100`
 
-where `max` is the corpus-wide maximum stroke or reading count. Highest counts map to purple (0%); lowest map to green (100%). Missing stroke data stays grey.
+where `max` is the corpus-wide maximum. Highest counts → purple; lowest → green. Missing stroke data stays grey.
+
+![Stroke count heatmap](docs/screenshots/color-strokes.png)
+
+![Reading count heatmap](docs/screenshots/color-readings.png)
+
+## Highlight
+
+**Highlight** is a multi-select with **collapsible** categories:
+
+1. **School year** (小1–小6, 中学+)
+2. **JLPT level** (N5–N1)
+3. **SRS stage** (when WaniKani is configured)
+4. **WaniKani level** 1–60 (when configured; starts collapsed)
+
+Match rule: **OR within a category**, **AND across categories**. Non-matches are dimmed. Use the in-menu search box to filter long lists (e.g. WK levels).
+
+![Highlight multi-select with collapsible categories](docs/screenshots/highlight-menu.png)
+
+**Search** (separate field) also dims non-matches for radical / component / kana reading queries.
+
+**Filters** can **remove** untracked, unstudied, or unhighlighted cells from the grid entirely.
+
+## Kanji detail modal
+
+Click a cell to open meanings, readings, mnemonics, review stats, animated **stroke order** ([KanjiVG](https://kanjivg.tagaini.net/), CC BY-SA 3.0), and example words. WaniKani data is preferred when available; **nanori (name readings)** come from [kanjiapi.dev](https://kanjiapi.dev/) / Kanjidic (WK nanori lists are inconsistent). Jisho meanings / BunPro examples fill other gaps. Kanji glyphs follow the Settings font at **regular weight**.
+
+![Kanji detail modal for 語](docs/screenshots/modal-kanji-detail.png)
+
+## Help modal
+
+The **?** button (next to Filters) explains cell corner labels, color legends, school-year bands, and unstudied vs untracked.
+
+![Map help modal](docs/screenshots/modal-help.png)
+
+## Settings
+
+Header **gear** opens Settings (cookie on this device):
+
+| Setting | Options |
+|---------|---------|
+| **Kanji font** | Gothic (default), Mincho, Calligraphic |
+| **Default order** | Same options as the Order control |
+| **Default color mode** | Same options as Color mode (WK-gated modes hidden without a key) |
+
+A live **字** preview updates as you change the font. Cancel discards; Save writes the cookie.
+
+![Settings modal](docs/screenshots/modal-settings.png)
+
+## Map controls (quick reference)
+
+| Control | Behavior |
+|---------|----------|
+| **Search** | Radical, kanji, or kana reading — dims non-matches |
+| **Highlight** | Multi-select year / JLPT / SRS / WK level; collapsible groups |
+| **Filters** | Remove untracked, unstudied, or unhighlighted cells |
+| **Help** | Cell legend + color / tracking explainer |
+| **Controls** | Zoom in / out, fit map to view |
+| **Order** | Jōyō, JLPT, WaniKani, SRS, usage, accuracy, readings, strokes |
+| **Color mode** | --, school year, JLPT, SRS, accuracy, WK level, strokes, readings |
+| **Columns** | 10–70 (includes 10/15/20 for mobile); default 40. Extra gutter column shows row indices (0, n, 2n, …) |
+| **Theme** | Light by default; header toggle for dark |
+| **Settings** | Font + default order / color mode (cookie) |
+| **Pan** | Drag the map, or **↑ / ↓** |
+| **Zoom** | Mouse wheel, toolbar buttons, or **Numpad + / −** |
+
+- Light blue outline = **untracked** (on the map, not in WaniKani)
+- Lighter grey, no outline = **unstudied** (in WaniKani, no positive SRS yet)
+- Accuracy corner shows blank when WaniKani is not configured; `--` when unstudied
+
+Merge rule: when both APIs have data for a character, **average** SRS (BunPro normalized to WK 0–9) and accuracy.
 
 ## Prerequisites
 
@@ -126,8 +249,6 @@ Copy the sample file and fill in your keys. **Never commit `.env`.**
 ```bash
 cp sample.env .env
 ```
-
-Edit `.env`:
 
 | Variable | Required? | Purpose |
 |----------|-----------|---------|
@@ -161,8 +282,6 @@ The app sends `Authorization: Token token=…` (Bearer fallback). Some unofficia
 
 ### 3. Seed the database
 
-Loads the committed kanji union (`data/kanji-union.json`) into SQLite and creates tables if needed:
-
 ```bash
 pnpm db:seed
 ```
@@ -194,26 +313,6 @@ pnpm dev
 
 Restart `pnpm dev` whenever you change `.env`.
 
-## Map controls
-
-| Control | Behavior |
-|---------|----------|
-| **Order** | Jōyō appearance (default), WaniKani, SRS, usage, accuracy, reading count, or stroke count — see [Ordering modes](#ordering-modes) |
-| **Color mode** | -- (uniform grey, default), School year, SRS, accuracy, WaniKani level, stroke-count, or reading-count heatmap — see [Color modes](#color-modes) |
-| **Highlight** | Multi-select school year, SRS bands, and/or WK levels 1–60 (OR within a category, AND across). Dims non-matches |
-| **Search** | Enter a radical, kanji, or kana reading to highlight matches (components via Jisho parts; readings via Kanjidic on/kun + WK nanori on sync) |
-| **Filters** | **Remove** untracked, unstudied, or unhighlighted cells from the grid |
-| **Columns** | 10–70 (step 5; 10/15/20 for mobile); default 40. Grid renders n+1 tracks: a transparent row-index gutter (0, n, 2n, …) plus n kanji columns |
-| **Theme** | Light by default; header toggle for dark |
-| **Pan** | Drag the map, or **↑ / ↓** anywhere on the page |
-| **Zoom** | Mouse wheel, toolbar buttons, or **Numpad + / −** |
-
-- Light blue outline = **untracked** (jōyō/school, not in WaniKani)
-- Lighter grey, no outline = **unstudied** (in WaniKani, no positive SRS yet)
-- Accuracy shows `--` when unstudied
-
-Merge rule: when both APIs have data for a character, **average** SRS (BunPro normalized to WK 0–9) and accuracy.
-
 ## Scripts
 
 | Script | Description |
@@ -223,9 +322,11 @@ Merge rule: when both APIs have data for a character, **average** SRS (BunPro no
 | `pnpm lint` / `pnpm test` / `pnpm typecheck` | Quality gates |
 | `pnpm db:seed` | Seed `kanji_ref` from `data/kanji-union.json` (+ Jisho radical/parts + Kanjidic readings) |
 | `pnpm data:jisho-meta` | Fetch/update Jisho kanji radical + parts metadata (rate-limited; writes `data/kanji-jisho-meta.json`) |
+| `pnpm data:kanjiapi-nanori` | Fetch nanori (name readings) from [kanjiapi.dev](https://kanjiapi.dev/) (writes `data/kanji-nanori.json`) |
 | `pnpm db:push` | Push Drizzle schema to SQLite |
 | `pnpm db:generate` | Generate migrations from `drizzle/schema.ts` |
 | `pnpm data:build` | Rebuild `data/kanji-union.json` from `data/raw/` |
+| `pnpm screenshots` | Refresh `docs/screenshots/` (requires `pnpm dev` running; uses system Chrome via puppeteer-core) |
 
 ## Docker
 

@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
-  countDistinctRawReadings,
+  countDistinctReadingStems,
   expandReadingVariants,
   isKanaOnlyQuery,
   normalizeReadingsList,
+  readingStem,
   readingsMatchQuery,
   toHiragana
 } from '../shared/utils/readings'
@@ -44,9 +45,26 @@ describe('readings', () => {
     expect(readingsMatchQuery('あ', readings)).toBe(false)
   })
 
-  it('counts distinct raw readings without stem expansion', () => {
-    expect(countDistinctRawReadings(['ご', 'かた.る', 'かた.らう', '!かた'])).toBe(4)
-    expect(countDistinctRawReadings(['ご', 'ゴ'])).toBe(1)
-    expect(countDistinctRawReadings([])).toBe(0)
+  it('counts distinct reading stems (okurigana collapsed)', () => {
+    expect(countDistinctReadingStems(['ご', 'かた.る', 'かた.らう', '!かた'])).toBe(2)
+    expect(countDistinctReadingStems(['ご', 'ゴ'])).toBe(1)
+    expect(countDistinctReadingStems(['なま-', '-う', 'い.きる'])).toBe(3)
+    expect(countDistinctReadingStems([])).toBe(0)
+  })
+
+  it('collapses 生-style Kanjidic+WK variants to stems', () => {
+    const raw = [
+      'せい', 'しょう',
+      'い.きる', 'い.かす', 'い.ける',
+      'う.まれる', 'うま.れる', 'う.まれ', 'うまれ', 'う.む',
+      'お.う', 'は.える', 'は.やす',
+      'き', 'なま', 'なま-', 'な.る', 'な.す', 'む.す', '-う',
+      '!い', '!なま', '!う', '!は', '!き'
+    ]
+    // on: せい/しょう; kun stems: い/う/うま/うまれ/お/は/き/なま/な/む
+    expect(countDistinctReadingStems(raw)).toBe(12)
+    expect(readingStem('い.きる')).toBe('い')
+    expect(readingStem('なま-')).toBe('なま')
+    expect(readingStem('-う')).toBe('う')
   })
 })

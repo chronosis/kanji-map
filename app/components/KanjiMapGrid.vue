@@ -116,7 +116,8 @@ function cellVisualInput(cell: MapCell) {
     inWanikani: cell.inWanikani,
     strokes: cell.strokes,
     readingCount: cell.readingCount,
-    wkLevel: cell.wkLevel
+    wkLevel: cell.wkLevel,
+    jlptLevel: cell.jlptLevel
   }
 }
 

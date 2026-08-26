@@ -11,6 +11,7 @@ export type OrderMode
   = | 'grade'
     | 'usage'
     | 'joyo'
+    | 'jlpt'
     | 'wk'
     | 'accuracy'
     | 'srs'
@@ -67,13 +68,21 @@ export interface MapCell {
    */
   readings: string[]
   /**
-   * Distinct raw reading count (on + kun + nanori, not stem-expanded).
+   * Distinct on/kun reading-stem count (okurigana collapsed; nanori excluded).
    * 0 when unknown / missing.
    */
   readingCount: number
 }
 
-export type ColorMode = 'none' | 'year' | 'srs' | 'accuracy' | 'strokes' | 'readings' | 'wk'
+export type ColorMode
+  = | 'none'
+    | 'year'
+    | 'jlpt'
+    | 'srs'
+    | 'accuracy'
+    | 'strokes'
+    | 'readings'
+    | 'wk'
 
 /** Focus filter for untracked / unstudied cells (dims non-matches). */
 export type MapFilterMode = 'none' | 'untracked' | 'untracked-unstudied' | 'unhighlighted'

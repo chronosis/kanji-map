@@ -12,7 +12,7 @@ import type { JishoKanjiMeta } from '../adapters/jisho-kanji'
 import type { JlptLevel, KanjiUnionEntry, MapCell, SchoolGrade } from '../../shared/types/kanji'
 import { assignGridIndices, compareByJoyoAppearance } from '../../shared/utils/kanji-order'
 import { parseJsonStringArray, stringifyJsonStringArray } from '../../shared/utils/json-arrays'
-import { countDistinctRawReadings, normalizeReadingsList } from '../../shared/utils/readings'
+import { countDistinctReadingStems, normalizeReadingsList } from '../../shared/utils/readings'
 import { mergeProgress } from '../../shared/utils/merge-progress'
 import { fetchBunproKanjiProgress } from '../adapters/bunpro'
 import { fetchWanikaniKanjiProgress } from '../adapters/wanikani'
@@ -26,39 +26,68 @@ function loadJishoMeta(): Record<string, JishoKanjiMeta> {
   return JSON.parse(readFileSync(metaPath, 'utf8')) as Record<string, JishoKanjiMeta>
 }
 
-/** Backfill searchable readings + counts from Kanjidic when missing. */
+function loadNanori(): Record<string, string[]> {
+  const path = resolve('data/kanji-nanori.json')
+  if (!existsSync(path)) return {}
+  return JSON.parse(readFileSync(path, 'utf8')) as Record<string, string[]>
+}
+
+/** Refresh searchable readings (if missing), stem counts when stale, and nanori from cache. */
 async function ensureKanjiReadings(db: ReturnType<typeof getDb>) {
-  const probe = await db.select({
-    readingsJson: kanjiRef.readingsJson,
-    readingCount: kanjiRef.readingCount
-  }).from(kanjiRef).where(eq(kanjiRef.character, '語')).limit(1)
-
-  const existingProbe = parseJsonStringArray(probe[0]?.readingsJson)
-  const hasSearchReadings = existingProbe.includes('ご')
-    || existingProbe.includes('かたる')
-    || existingProbe.includes('かた')
-  const hasCount = (probe[0]?.readingCount ?? 0) > 0
-  if (hasSearchReadings && hasCount) return
-
   const kanjidic = loadKanjidicReadingIndex()
   if (kanjidic.size === 0) return
 
+  const nanoriByChar = loadNanori()
+
+  const goProbe = await db.select({
+    readingsJson: kanjiRef.readingsJson
+  }).from(kanjiRef).where(eq(kanjiRef.character, '語')).limit(1)
+
+  const seiProbe = await db.select({
+    readingCount: kanjiRef.readingCount,
+    nanoriJson: kanjiRef.nanoriJson
+  }).from(kanjiRef).where(eq(kanjiRef.character, '生')).limit(1)
+
+  const existingProbe = parseJsonStringArray(goProbe[0]?.readingsJson)
+  const hasSearchReadings = existingProbe.includes('ご')
+    || existingProbe.includes('かたる')
+    || existingProbe.includes('かた')
+  const expectedSeiCount = kanjidic.get('生')?.readingCount ?? 0
+  const countsAreCurrent = expectedSeiCount > 0
+    && (seiProbe[0]?.readingCount ?? 0) === expectedSeiCount
+  const expectedSeiNanori = nanoriByChar['生'] ?? []
+  const nanoriAreCurrent = expectedSeiNanori.length === 0
+    || parseJsonStringArray(seiProbe[0]?.nanoriJson).length > 0
+
+  if (hasSearchReadings && countsAreCurrent && nanoriAreCurrent) return
+
   const refs = await db.select({
     character: kanjiRef.character,
-    readingsJson: kanjiRef.readingsJson
+    readingsJson: kanjiRef.readingsJson,
+    nanoriJson: kanjiRef.nanoriJson
   }).from(kanjiRef)
 
   await db.transaction(async (tx) => {
     for (const ref of refs) {
       const index = kanjidic.get(ref.character)
-      const mergedSearch = normalizeReadingsList([
-        ...parseJsonStringArray(ref.readingsJson),
-        ...(index?.searchReadings ?? [])
-      ])
-      await tx.update(kanjiRef).set({
-        readingsJson: stringifyJsonStringArray(mergedSearch),
-        readingCount: index?.readingCount ?? 0
-      }).where(eq(kanjiRef.character, ref.character))
+      const nanori = nanoriByChar[ref.character]
+        ?? parseJsonStringArray(ref.nanoriJson)
+      const patch: {
+        readingsJson?: string
+        readingCount: number
+        nanoriJson: string
+      } = {
+        readingCount: index?.readingCount ?? 0,
+        nanoriJson: stringifyJsonStringArray(nanori)
+      }
+      if (!hasSearchReadings || !nanoriAreCurrent) {
+        patch.readingsJson = stringifyJsonStringArray(normalizeReadingsList([
+          ...parseJsonStringArray(ref.readingsJson),
+          ...(index?.searchReadings ?? []),
+          ...nanori
+        ]))
+      }
+      await tx.update(kanjiRef).set(patch).where(eq(kanjiRef.character, ref.character))
     }
   })
 }
@@ -75,12 +104,14 @@ export async function ensureSeeded(databasePath: string) {
   const raw = JSON.parse(readFileSync(resolve('data/kanji-union.json'), 'utf8')) as KanjiUnionEntry[]
   const rows = assignGridIndices(raw)
   const jishoMeta = loadJishoMeta()
+  const nanoriByChar = loadNanori()
   const kanjidic = loadKanjidicReadingIndex()
   const chunkSize = 200
   for (let i = 0; i < rows.length; i += chunkSize) {
     const chunk = rows.slice(i, i + chunkSize).map((row) => {
       const meta = jishoMeta[row.character]
       const readings = kanjidic.get(row.character)
+      const nanori = nanoriByChar[row.character] ?? []
       return {
         character: row.character,
         schoolGrade: row.schoolGrade,
@@ -95,8 +126,12 @@ export async function ensureSeeded(databasePath: string) {
         radicalSymbol: meta?.radicalSymbol ?? null,
         radicalFormsJson: stringifyJsonStringArray(meta?.radicalForms ?? []),
         partsJson: stringifyJsonStringArray(meta?.parts ?? []),
-        readingsJson: stringifyJsonStringArray(readings?.searchReadings ?? []),
-        readingCount: readings?.readingCount ?? 0
+        readingsJson: stringifyJsonStringArray(normalizeReadingsList([
+          ...(readings?.searchReadings ?? []),
+          ...nanori
+        ])),
+        readingCount: readings?.readingCount ?? 0,
+        nanoriJson: stringifyJsonStringArray(nanori)
       }
     })
     await db.insert(kanjiRef).values(chunk)
@@ -110,27 +145,37 @@ export async function ensureSeeded(databasePath: string) {
  */
 async function applyWanikaniCatalog(
   db: ReturnType<typeof getDb>,
-  wkRows: Array<{ character: string, level: number, apiOrder: number, readings: string[] }>
+  wkRows: Array<{
+    character: string
+    level: number
+    apiOrder: number
+    readings: string[]
+    onKunReadings: string[]
+  }>
 ) {
   const byChar = new Map(wkRows.map(r => [r.character, r]))
   const kanjidic = loadKanjidicReadingIndex()
   const refs = await db.select({
     character: kanjiRef.character,
-    readingsJson: kanjiRef.readingsJson
+    readingsJson: kanjiRef.readingsJson,
+    nanoriJson: kanjiRef.nanoriJson
   }).from(kanjiRef)
 
   await db.transaction(async (tx) => {
     for (const ref of refs) {
       const wk = byChar.get(ref.character)
       const index = kanjidic.get(ref.character)
+      const nanori = parseJsonStringArray(ref.nanoriJson)
       const readings = normalizeReadingsList([
         ...parseJsonStringArray(ref.readingsJson),
         ...(index?.searchReadings ?? []),
+        ...nanori,
         ...(wk?.readings ?? [])
       ])
-      const readingCount = countDistinctRawReadings([
+      // Stem count: Kanjidic on/kun + WK on/kun only (never nanori).
+      const readingCount = countDistinctReadingStems([
         ...(index?.rawReadings ?? []),
-        ...(wk?.readings ?? [])
+        ...(wk?.onKunReadings ?? [])
       ])
       await tx.update(kanjiRef).set({
         inWanikani: Boolean(wk),

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   assignGridIndices,
   compareByAccuracy,
+  compareByJlpt,
   compareByJoyoAppearance,
   compareByReadingCount,
   compareBySrs,
@@ -86,6 +87,21 @@ describe('kanji-order', () => {
     expect(compareByJoyoAppearance(sample[0], sample[2])).toBeGreaterThan(0)
   })
 
+  it('orders by JLPT N5→N1 then unranked, with jōyō appearance ties', () => {
+    const sample = [
+      entry('漢', { jlptLevel: 'N1', inJoyoo: true, schoolGrade: null, strokes: 13 }),
+      entry('外', { jlptLevel: null, inJoyoo: false, strokes: 5 }),
+      entry('一', { jlptLevel: 'N5', inJoyoo: true, schoolGrade: 1, strokes: 1 }),
+      entry('字', { jlptLevel: 'N4', inJoyoo: true, schoolGrade: 1, strokes: 6 }),
+      entry('未', { jlptLevel: null, inJoyoo: true, schoolGrade: 2, strokes: 5 }),
+      entry('語', { jlptLevel: 'N5', inJoyoo: true, schoolGrade: 2, strokes: 14 })
+    ]
+    expect(orderKanjiUnion(sample, 'jlpt').map(o => o.character)).toEqual([
+      '一', '語', '字', '漢', '未', '外'
+    ])
+    expect(compareByJlpt(sample[0]!, sample[2]!)).toBeGreaterThan(0)
+  })
+
   it('orders by WaniKani level then API response appearance', () => {
     const cells = [
       cell('漢', { wkLevel: 10, wkApiOrder: 200, inWanikani: true }),
@@ -105,7 +121,7 @@ describe('kanji-order', () => {
       cell('学', { inWanikani: true, accuracyAvg: null, sources: 0 }),
       cell('外', { inJoyoo: false, accuracyAvg: null, inWanikani: false })
     ]
-    expect(sortMapCells(cells, 'accuracy').map(c => c.character)).toEqual(['日', '月', '外', '学', '未'])
+    expect(sortMapCells(cells, 'accuracy').map(c => c.character)).toEqual(['日', '月', '学', '外', '未'])
     expect(compareByAccuracy(cells[1], cells[2])).toBeLessThan(0)
     expect(compareByAccuracy(cells[0], cells[1])).toBeGreaterThan(0)
   })
@@ -173,9 +189,9 @@ describe('kanji-order', () => {
     const sorted = sortMapCells(cells, 'wk')
     expect(sorted.map(c => c.character)).toEqual(['日', '外', '学', '未'])
     expect(sorted.find(c => c.character === '日')?.gridIndex).toBe(0)
-    expect(sorted.find(c => c.character === '外')?.gridIndex).toBe(1)
-    expect(sorted.find(c => c.character === '学')?.gridIndex).toBe(9000)
-    expect(sorted.find(c => c.character === '未')?.gridIndex).toBe(9001)
+    expect(sorted.find(c => c.character === '外')?.gridIndex).toBe(9000)
+    expect(sorted.find(c => c.character === '学')?.gridIndex).toBe(9001)
+    expect(sorted.find(c => c.character === '未')?.gridIndex).toBe(9002)
   })
 
   it('assigns contiguous grid indices', () => {

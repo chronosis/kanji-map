@@ -1,5 +1,5 @@
 import type { JlptLevel, KanjiUnionEntry, MapCell, OrderMode, SchoolGrade } from '../types/kanji'
-import { isCurriculum, isUntracked, sortableAccuracy } from './colors'
+import { isUntracked, sortableAccuracy } from './colors'
 
 /** In WK order mode, untracked cells sort after all WK levels and get gridIndex ≥ this. */
 export const WK_UNTRACKED_SORT_OFFSET = 9000
@@ -40,10 +40,7 @@ function cellIsUntracked(cell: {
   accuracyAvg?: number | null
 }): boolean {
   if (typeof cell.inWanikani === 'boolean') {
-    return isCurriculum({
-      inJoyoo: cell.inJoyoo ?? false,
-      schoolGrade: cell.schoolGrade ?? null
-    }) && !cell.inWanikani
+    return !cell.inWanikani
   }
   return isUntracked({
     srsAvg: cell.srsAvg ?? null,
@@ -91,6 +88,17 @@ export function compareByJoyoAppearance(a: KanjiUnionEntry, b: KanjiUnionEntry):
   return cmpChar(a.character, b.character)
 }
 
+/**
+ * JLPT level: N5 → N4 → N3 → N2 → N1, then unranked (no JLPT tag);
+ * ties break with jōyō appearance.
+ */
+export function compareByJlpt(a: KanjiUnionEntry, b: KanjiUnionEntry): number {
+  const jlptA = a.jlptLevel ? JLPT_ORDER[a.jlptLevel] : 99
+  const jlptB = b.jlptLevel ? JLPT_ORDER[b.jlptLevel] : 99
+  if (jlptA !== jlptB) return jlptA - jlptB
+  return compareByJoyoAppearance(a, b)
+}
+
 type WkOrderable = {
   character: string
   wkLevel?: number | null
@@ -106,7 +114,7 @@ type WkOrderable = {
 
 /**
  * WaniKani lesson order: level → API response appearance → code point.
- * Untracked (MEXT/jōyō not in WK) always sort last (effective level +9000).
+ * Untracked (not in WK) always sort last (effective level +9000).
  */
 export function compareByWk(a: WkOrderable, b: WkOrderable): number {
   const aUntracked = cellIsUntracked(a)
@@ -201,6 +209,7 @@ export function compareKanjiEntries(a: KanjiUnionEntry, b: KanjiUnionEntry): num
 export function getComparator(mode: OrderMode): (a: KanjiUnionEntry, b: KanjiUnionEntry) => number {
   if (mode === 'usage') return compareByUsage
   if (mode === 'joyo') return compareByJoyoAppearance
+  if (mode === 'jlpt') return compareByJlpt
   if (mode === 'wk') {
     return compareByWk as (a: KanjiUnionEntry, b: KanjiUnionEntry) => number
   }
