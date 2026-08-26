@@ -10,6 +10,8 @@ import { schoolYearLabel } from '../../shared/utils/kanji-order'
 import { clampPan } from '../../shared/utils/pan-clamp'
 import {
   DEFAULT_GRID_COLUMNS,
+  buildMapGridTrackItems,
+  gridTrackColumnCount,
   isGridColumnCount,
   stepGridColumns,
   type GridColumnCount
@@ -49,13 +51,17 @@ const viewport = ref<HTMLElement | null>(null)
 /** Skip center-preserve on the first columns watch after mount. */
 const allowCenterPreserve = ref(false)
 
+const trackItems = computed(() => buildMapGridTrackItems(props.cells, columns.value))
+
 function rowCount(cols: number = columns.value): number {
   if (cols <= 0) return 0
   return Math.ceil(props.cells.length / cols)
 }
 
+/** Content width includes the leading row-index gutter column. */
 function gridContentWidth(cols: number): number {
-  return cols * CELL_W_PX + Math.max(0, cols - 1) * GAP_PX + PAD_PX * 2
+  const trackCols = gridTrackColumnCount(cols)
+  return trackCols * CELL_W_PX + Math.max(0, trackCols - 1) * GAP_PX + PAD_PX * 2
 }
 
 function gridContentHeight(cols: number = columns.value): number {
@@ -70,6 +76,11 @@ function cellStrideX(): number {
 
 function cellStrideY(): number {
   return CELL_H_PX + GAP_PX
+}
+
+/** Horizontal center of a data cell (col 0..n-1), accounting for the gutter. */
+function dataCellCenterX(dataCol: number): number {
+  return PAD_PX + (dataCol + 1) * cellStrideX() + CELL_W_PX / 2
 }
 
 function applyClamp() {
@@ -101,7 +112,7 @@ function fitWidth(preserveCenterIndex: number | null = null) {
     const idx = Math.min(props.cells.length - 1, Math.max(0, preserveCenterIndex))
     const col = idx % columns.value
     const row = Math.floor(idx / columns.value)
-    const cx = PAD_PX + col * cellStrideX() + CELL_W_PX / 2
+    const cx = dataCellCenterX(col)
     const cy = PAD_PX + row * cellStrideY() + CELL_H_PX / 2
     translate.x = el.clientWidth / 2 - cx * scale.value
     translate.y = el.clientHeight / 2 - cy * scale.value
@@ -115,7 +126,8 @@ function fitWidth(preserveCenterIndex: number | null = null) {
 function viewportCenterCellIndex(cols: number): number {
   const el = viewport.value
   if (!el || cols <= 0 || props.cells.length === 0) return 0
-  const cx = (-translate.x + el.clientWidth / 2) / scale.value - PAD_PX
+  // Skip the gutter column when mapping viewport X → data column.
+  const cx = (-translate.x + el.clientWidth / 2) / scale.value - PAD_PX - cellStrideX()
   const cy = (-translate.y + el.clientHeight / 2) / scale.value - PAD_PX
   const col = Math.min(cols - 1, Math.max(0, Math.floor(cx / cellStrideX())))
   const row = Math.max(0, Math.floor(cy / cellStrideY()))
@@ -289,7 +301,7 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect()
 })
 
-watch(columns, (newCols, oldCols) => {
+watch(columns, (_newCols, oldCols) => {
   if (!allowCenterPreserve.value) {
     nextTick(() => fitWidth(null))
     return
@@ -326,31 +338,48 @@ defineExpose({ zoomIn, zoomOut, resetView, fitWidth })
       <div
         class="grid"
         :style="{
-          gridTemplateColumns: `repeat(${columns}, ${CELL_W_PX}px)`,
+          gridTemplateColumns: `repeat(${gridTrackColumnCount(columns)}, ${CELL_W_PX}px)`,
           gap: `${GAP_PX}px`
         }"
       >
-        <button
-          v-for="cell in cells"
-          :key="cell.character"
-          type="button"
-          class="relative flex items-center justify-center rounded-sm text-base font-medium leading-none transition-opacity"
-          :class="[
-            cellClass(cell),
-            dimmed(cell) ? 'opacity-20' : 'opacity-100 hover:ring-2 hover:ring-primary'
-          ]"
-          :style="{
-            width: `${CELL_W_PX}px`,
-            height: `${CELL_H_PX}px`
-          }"
-          :title="`${cell.character} · ${schoolYearLabel(cell.schoolGrade, cell.inJoyoo)} · JLPT ${cell.jlptLevel ?? '—'} · SRS ${cell.srsAvg?.toFixed(1) ?? '—'} · ${accuracyLabel(cell)}`"
-          @click="onCellClick(cell.character)"
+        <template
+          v-for="item in trackItems"
+          :key="item.key"
         >
-          <span class="select-none font-bold text-gray-900 dark:text-gray-950">{{ cell.character }}</span>
-          <span class="pointer-events-none absolute bottom-0.5 right-0.5 text-[0.6rem] leading-none text-gray-800/80">
-            {{ accuracyLabel(cell) }}
-          </span>
-        </button>
+          <div
+            v-if="item.kind === 'label'"
+            class="pointer-events-none flex items-center justify-center bg-transparent"
+            :style="{
+              width: `${CELL_W_PX}px`,
+              height: `${CELL_H_PX}px`
+            }"
+            :aria-label="`Row starting at cell ${item.offset}`"
+          >
+            <span class="select-none text-center text-xs font-bold leading-none text-highlighted">
+              {{ item.offset }}
+            </span>
+          </div>
+          <button
+            v-else
+            type="button"
+            class="relative flex items-center justify-center rounded-sm text-base font-medium leading-none transition-opacity"
+            :class="[
+              cellClass(item.cell),
+              dimmed(item.cell) ? 'opacity-20' : 'opacity-100 hover:ring-2 hover:ring-primary'
+            ]"
+            :style="{
+              width: `${CELL_W_PX}px`,
+              height: `${CELL_H_PX}px`
+            }"
+            :title="`${item.cell.character} · ${schoolYearLabel(item.cell.schoolGrade, item.cell.inJoyoo)} · JLPT ${item.cell.jlptLevel ?? '—'} · SRS ${item.cell.srsAvg?.toFixed(1) ?? '—'} · ${accuracyLabel(item.cell)}`"
+            @click="onCellClick(item.cell.character)"
+          >
+            <span class="select-none font-bold text-gray-900 dark:text-gray-950">{{ item.cell.character }}</span>
+            <span class="pointer-events-none absolute bottom-0.5 right-0.5 text-[0.6rem] leading-none text-gray-800/80">
+              {{ accuracyLabel(item.cell) }}
+            </span>
+          </button>
+        </template>
       </div>
     </div>
   </div>

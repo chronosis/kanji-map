@@ -28,7 +28,12 @@ const highlightGrade = ref<string>('all')
 const highlightSrsBand = ref<string>('all')
 const mapFilter = ref<MapFilterMode>('none')
 const kanjiSearch = ref('')
-const gridRef = ref<{ zoomIn: () => void, zoomOut: () => void, resetView: () => void } | null>(null)
+const gridRef = ref<{
+  zoomIn: () => void
+  zoomOut: () => void
+  resetView: () => void
+  fitWidth: (preserveCenterIndex?: number | null) => void
+} | null>(null)
 const detailOpen = ref(false)
 const detailCharacter = ref<string | null>(null)
 
@@ -138,7 +143,8 @@ const orderedCells = computed(() => {
 })
 
 watch(orderMode, () => {
-  nextTick(() => gridRef.value?.resetView())
+  // Re-fit pan/scale for the new order without resetting the column zoom level.
+  nextTick(() => gridRef.value?.fitWidth(null))
 })
 </script>
 

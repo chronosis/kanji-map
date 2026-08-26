@@ -169,7 +169,7 @@ Restart `pnpm dev` whenever you change `.env`.
 | **Highlight year / SRS** | Dim cells that do not match (visual only) |
 | **Search** | Enter a radical or kanji to highlight matches and kanji that use that component (Jisho parts/radical data) |
 | **Filters** | **Remove** untracked, unstudied, or unhighlighted cells from the grid |
-| **Columns** | 25–70 (step 5); default 40 |
+| **Columns** | 25–70 (step 5); default 40. Grid renders n+1 tracks: a transparent row-index gutter (0, n, 2n, …) plus n kanji columns |
 | **Theme** | Light by default; header toggle for dark |
 | **Pan** | Drag the map, or **↑ / ↓** anywhere on the page |
 | **Zoom** | Mouse wheel, toolbar buttons, or **Numpad + / −** |

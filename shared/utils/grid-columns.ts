@@ -25,3 +25,44 @@ export function stepGridColumns(current: number, direction: -1 | 1): GridColumnC
   )
   return GRID_COLUMN_OPTIONS[next]!
 }
+
+/** First cell index shown on a grid row (0, N, 2N, …). */
+export function rowOffsetLabel(rowIndex: number, columnCount: number): number {
+  return Math.max(0, rowIndex) * Math.max(0, columnCount)
+}
+
+/** Data columns plus the leading row-index gutter. */
+export function gridTrackColumnCount(dataColumns: number): number {
+  return Math.max(0, dataColumns) + 1
+}
+
+export type MapGridTrackItem<T>
+  = | { kind: 'label', key: string, offset: number }
+    | { kind: 'cell', key: string, cell: T }
+
+/** Interleave row-index labels with cells for an (n+1)-column CSS grid. */
+export function buildMapGridTrackItems<T extends { character: string }>(
+  cells: readonly T[],
+  columnCount: number
+): Array<MapGridTrackItem<T>> {
+  if (columnCount <= 0 || cells.length === 0) return []
+
+  const items: Array<MapGridTrackItem<T>> = []
+  for (let i = 0; i < cells.length; i++) {
+    if (i % columnCount === 0) {
+      const rowIndex = i / columnCount
+      items.push({
+        kind: 'label',
+        key: `row-label-${rowIndex}`,
+        offset: rowOffsetLabel(rowIndex, columnCount)
+      })
+    }
+    const cell = cells[i]!
+    items.push({
+      kind: 'cell',
+      key: cell.character,
+      cell
+    })
+  }
+  return items
+}
