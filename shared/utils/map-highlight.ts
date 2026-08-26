@@ -1,13 +1,210 @@
 import type { MapCell } from '../types/kanji'
-import { hasApiSrs } from './colors'
+import { hasApiSrs, WANIKANI_MAX_LEVEL } from './colors'
 import { isKanaOnlyQuery, readingsMatchQuery } from './readings'
 
+/** Inclusive SRS band; unstudied is encoded as min=max=-1. */
+export interface HighlightSrsBand {
+  min: number
+  max: number
+}
+
+export type HighlightGrade = number | 'jh'
+
 export interface MapHighlightFilters {
-  highlightGrade: number | 'jh' | null
-  highlightSrsMin: number | null
-  highlightSrsMax: number | null
+  /** Empty = no school-year highlight. Match is OR within the list. */
+  highlightGrades: HighlightGrade[]
+  /** Empty = no SRS highlight. Match is OR within the list. */
+  highlightSrsBands: HighlightSrsBand[]
+  /** Empty = no WK-level highlight. Match is OR within the list. */
+  highlightWkLevels: number[]
   /** Trimmed search query (radical, kanji, or kana reading). */
   searchQuery: string
+}
+
+/** Prefixed option values used by the Highlight multi-select. */
+export type HighlightOptionValue
+  = | `year:${1 | 2 | 3 | 4 | 5 | 6 | 'jh'}`
+    | `srs:unstudied`
+    | `srs:1-4`
+    | `srs:5-9`
+    | `srs:9-9`
+    | `wk:${number}`
+
+export interface HighlightMenuItem {
+  label: string
+  value: HighlightOptionValue
+}
+
+export interface HighlightMenuGroup {
+  type: 'label'
+  label: string
+}
+
+/** Nuxt UI SelectMenu nested group: label row + options. */
+export type HighlightMenuSection = Array<HighlightMenuGroup | HighlightMenuItem>
+
+export const HIGHLIGHT_YEAR_OPTIONS: readonly HighlightMenuItem[] = [
+  { label: '小1', value: 'year:1' },
+  { label: '小2', value: 'year:2' },
+  { label: '小3', value: 'year:3' },
+  { label: '小4', value: 'year:4' },
+  { label: '小5', value: 'year:5' },
+  { label: '小6', value: 'year:6' },
+  { label: '中学+ (jōyō)', value: 'year:jh' }
+] as const
+
+export const HIGHLIGHT_SRS_OPTIONS: readonly HighlightMenuItem[] = [
+  { label: 'Unstudied', value: 'srs:unstudied' },
+  { label: 'Apprentice (1–4)', value: 'srs:1-4' },
+  { label: 'Guru+ (5–9)', value: 'srs:5-9' },
+  { label: 'Burned (9)', value: 'srs:9-9' }
+] as const
+
+export const HIGHLIGHT_WK_LEVEL_OPTIONS: readonly HighlightMenuItem[] = Array.from(
+  { length: WANIKANI_MAX_LEVEL },
+  (_, i) => {
+    const level = i + 1
+    return {
+      label: `Level ${level}`,
+      value: `wk:${level}` as HighlightOptionValue
+    }
+  }
+)
+
+/** Grouped items for USelectMenu (array-of-arrays with label headings). */
+export function buildHighlightMenuItems(options?: {
+  includeSrs?: boolean
+  includeWkLevels?: boolean
+}): HighlightMenuSection[] {
+  const sections: HighlightMenuSection[] = [
+    [
+      { type: 'label', label: 'School year' },
+      ...HIGHLIGHT_YEAR_OPTIONS
+    ]
+  ]
+  if (options?.includeSrs === true) {
+    sections.push([
+      { type: 'label', label: 'SRS stage' },
+      ...HIGHLIGHT_SRS_OPTIONS
+    ])
+  }
+  if (options?.includeWkLevels === true) {
+    sections.push([
+      { type: 'label', label: 'WaniKani level' },
+      ...HIGHLIGHT_WK_LEVEL_OPTIONS
+    ])
+  }
+  return sections
+}
+
+export function parseHighlightGradeValue(value: string): HighlightGrade | null {
+  if (!value.startsWith('year:')) return null
+  const raw = value.slice('year:'.length)
+  if (raw === 'jh') return 'jh'
+  const n = Number(raw)
+  if (n >= 1 && n <= 6) return n
+  return null
+}
+
+export function parseHighlightSrsValue(value: string): HighlightSrsBand | null {
+  if (!value.startsWith('srs:')) return null
+  const raw = value.slice('srs:'.length)
+  if (raw === 'unstudied') return { min: -1, max: -1 }
+  const [minRaw, maxRaw] = raw.split('-')
+  const min = Number(minRaw)
+  const max = Number(maxRaw)
+  if (!Number.isFinite(min) || !Number.isFinite(max)) return null
+  return { min, max }
+}
+
+export function parseHighlightWkLevelValue(value: string): number | null {
+  if (!value.startsWith('wk:')) return null
+  const level = Number(value.slice('wk:'.length))
+  if (!Number.isInteger(level) || level < 1 || level > WANIKANI_MAX_LEVEL) return null
+  return level
+}
+
+function isKnownHighlightOptionValue(value: string): value is HighlightOptionValue {
+  return parseHighlightGradeValue(value) != null
+    || parseHighlightSrsValue(value) != null
+    || parseHighlightWkLevelValue(value) != null
+}
+
+/** Derive typed highlight filters from multi-select option values. */
+export function highlightFiltersFromSelection(
+  selected: readonly string[],
+  searchQuery: string
+): MapHighlightFilters {
+  const highlightGrades: HighlightGrade[] = []
+  const highlightSrsBands: HighlightSrsBand[] = []
+  const highlightWkLevels: number[] = []
+  const seenGrades = new Set<string>()
+  const seenSrs = new Set<string>()
+  const seenWk = new Set<number>()
+
+  for (const value of selected) {
+    const grade = parseHighlightGradeValue(value)
+    if (grade != null) {
+      const key = String(grade)
+      if (!seenGrades.has(key)) {
+        seenGrades.add(key)
+        highlightGrades.push(grade)
+      }
+      continue
+    }
+    const srs = parseHighlightSrsValue(value)
+    if (srs != null) {
+      const key = `${srs.min}-${srs.max}`
+      if (!seenSrs.has(key)) {
+        seenSrs.add(key)
+        highlightSrsBands.push(srs)
+      }
+      continue
+    }
+    const wkLevel = parseHighlightWkLevelValue(value)
+    if (wkLevel != null && !seenWk.has(wkLevel)) {
+      seenWk.add(wkLevel)
+      highlightWkLevels.push(wkLevel)
+    }
+  }
+
+  return {
+    highlightGrades,
+    highlightSrsBands,
+    highlightWkLevels,
+    searchQuery
+  }
+}
+
+/** Drop WK-gated option values when WaniKani is not configured. */
+export function filterHighlightSelectionForSources(
+  selected: readonly string[],
+  wanikaniConfigured: boolean
+): HighlightOptionValue[] {
+  return selected.filter((value): value is HighlightOptionValue => {
+    if (!wanikaniConfigured && (value.startsWith('srs:') || value.startsWith('wk:'))) {
+      return false
+    }
+    return isKnownHighlightOptionValue(value)
+  })
+}
+
+function matchesHighlightGrade(cell: MapCell, grade: HighlightGrade): boolean {
+  if (grade === 'jh') return cell.inJoyoo && cell.schoolGrade == null
+  return cell.schoolGrade === grade
+}
+
+function matchesHighlightSrsBand(cell: MapCell, band: HighlightSrsBand): boolean {
+  if (band.min === -1 && band.max === -1) {
+    return !hasApiSrs(cell.sources, cell.srsAvg)
+  }
+  if (!hasApiSrs(cell.sources, cell.srsAvg)) return false
+  const srs = cell.srsAvg ?? 0
+  return srs >= band.min && srs <= band.max
+}
+
+function matchesHighlightWkLevel(cell: MapCell, level: number): boolean {
+  return cell.wkLevel === level
 }
 
 export function normalizeKanjiSearchQuery(raw: string): string {
@@ -71,25 +268,29 @@ export function matchesKanjiSearchQuery(query: string, target: KanjiSearchTarget
 }
 
 export function hasActiveMapHighlight(filters: MapHighlightFilters): boolean {
-  return filters.highlightGrade != null
-    || filters.highlightSrsMin != null
-    || filters.highlightSrsMax != null
+  return filters.highlightGrades.length > 0
+    || filters.highlightSrsBands.length > 0
+    || filters.highlightWkLevels.length > 0
     || normalizeKanjiSearchQuery(filters.searchQuery).length > 0
 }
 
 export function isMapCellHighlighted(cell: MapCell, filters: MapHighlightFilters): boolean {
-  if (filters.highlightGrade === 'jh') {
-    if (!(cell.inJoyoo && cell.schoolGrade == null)) return false
-  } else if (filters.highlightGrade != null && cell.schoolGrade !== filters.highlightGrade) {
-    return false
+  if (filters.highlightGrades.length > 0) {
+    if (!filters.highlightGrades.some(grade => matchesHighlightGrade(cell, grade))) {
+      return false
+    }
   }
 
-  if (filters.highlightSrsMin === -1 && filters.highlightSrsMax === -1) {
-    if (hasApiSrs(cell.sources, cell.srsAvg)) return false
-  } else if (filters.highlightSrsMin != null || filters.highlightSrsMax != null) {
-    if (!hasApiSrs(cell.sources, cell.srsAvg)) return false
-    if (filters.highlightSrsMin != null && (cell.srsAvg ?? 0) < filters.highlightSrsMin) return false
-    if (filters.highlightSrsMax != null && (cell.srsAvg ?? 0) > filters.highlightSrsMax) return false
+  if (filters.highlightSrsBands.length > 0) {
+    if (!filters.highlightSrsBands.some(band => matchesHighlightSrsBand(cell, band))) {
+      return false
+    }
+  }
+
+  if (filters.highlightWkLevels.length > 0) {
+    if (!filters.highlightWkLevels.some(level => matchesHighlightWkLevel(cell, level))) {
+      return false
+    }
   }
 
   const q = normalizeKanjiSearchQuery(filters.searchQuery)

@@ -358,7 +358,7 @@ defineExpose({ zoomIn, zoomOut, resetView, fitWidth })
             :title="cellTitle(item.cell)"
             @click="onCellClick(item.cell.character)"
           >
-            <span class="select-none font-bold text-gray-900 dark:text-gray-950">{{ item.cell.character }}</span>
+            <span class="km-kanji select-none text-gray-900 dark:text-gray-950">{{ item.cell.character }}</span>
             <span
               class="pointer-events-none absolute top-0.5 left-0.5 text-[0.6rem] font-bold leading-none text-gray-900"
             >

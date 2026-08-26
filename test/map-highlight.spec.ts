@@ -1,10 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import type { MapCell } from '../shared/types/kanji'
 import {
+  buildHighlightMenuItems,
+  filterHighlightSelectionForSources,
   hasActiveMapHighlight,
+  highlightFiltersFromSelection,
   isMapCellDimmed,
   isMapCellHighlighted,
-  matchesKanjiSearchQuery
+  matchesKanjiSearchQuery,
+  parseHighlightGradeValue,
+  parseHighlightSrsValue,
+  parseHighlightWkLevelValue
 } from '../shared/utils/map-highlight'
 
 function cell(partial: Partial<MapCell> & Pick<MapCell, 'character'>): MapCell {
@@ -84,9 +90,9 @@ describe('map-highlight', () => {
 
   it('dims non-matching cells when search is active', () => {
     const filters = {
-      highlightGrade: null,
-      highlightSrsMin: null,
-      highlightSrsMax: null,
+      highlightGrades: [],
+      highlightSrsBands: [],
+      highlightWkLevels: [],
       searchQuery: '口'
     }
     expect(hasActiveMapHighlight(filters)).toBe(true)
@@ -94,19 +100,96 @@ describe('map-highlight', () => {
     expect(isMapCellDimmed(cell({ character: '木' }), filters)).toBe(true)
   })
 
-  it('combines year and search filters', () => {
+  it('ORs multiple school years and ANDs with search', () => {
     const grade2 = cell({
       character: '語',
       schoolGrade: 2,
       parts: ['口']
     })
-    const filters = {
-      highlightGrade: 2 as const,
-      highlightSrsMin: null,
-      highlightSrsMax: null,
-      searchQuery: '口'
-    }
+    const filters = highlightFiltersFromSelection(['year:2', 'year:3'], '口')
+    expect(filters.highlightGrades).toEqual([2, 3])
     expect(isMapCellHighlighted(grade2, filters)).toBe(true)
-    expect(isMapCellHighlighted({ ...grade2, schoolGrade: 3 }, filters)).toBe(false)
+    expect(isMapCellHighlighted({ ...grade2, schoolGrade: 3 }, filters)).toBe(true)
+    expect(isMapCellHighlighted({ ...grade2, schoolGrade: 1 }, filters)).toBe(false)
+  })
+
+  it('ORs multiple SRS bands', () => {
+    const apprentice = cell({
+      character: '火',
+      sources: 1,
+      inWanikani: true,
+      srsAvg: 3
+    })
+    const burned = cell({
+      character: '水',
+      sources: 1,
+      inWanikani: true,
+      srsAvg: 9
+    })
+    const filters = highlightFiltersFromSelection(['srs:1-4', 'srs:9-9'], '')
+    expect(isMapCellHighlighted(apprentice, filters)).toBe(true)
+    expect(isMapCellHighlighted(burned, filters)).toBe(true)
+    expect(isMapCellHighlighted(cell({
+      character: '木',
+      sources: 1,
+      inWanikani: true,
+      srsAvg: 5
+    }), filters)).toBe(false)
+  })
+
+  it('ORs WaniKani levels and ANDs with other categories', () => {
+    const level5 = cell({
+      character: '火',
+      schoolGrade: 1,
+      inWanikani: true,
+      wkLevel: 5
+    })
+    const filters = highlightFiltersFromSelection(['year:1', 'wk:5', 'wk:6'], '')
+    expect(filters.highlightWkLevels).toEqual([5, 6])
+    expect(isMapCellHighlighted(level5, filters)).toBe(true)
+    expect(isMapCellHighlighted({ ...level5, wkLevel: 6 }, filters)).toBe(true)
+    expect(isMapCellHighlighted({ ...level5, wkLevel: 7 }, filters)).toBe(false)
+    expect(isMapCellHighlighted({ ...level5, schoolGrade: 2 }, filters)).toBe(false)
+  })
+
+  it('ANDs year and SRS categories', () => {
+    const match = cell({
+      character: '日',
+      schoolGrade: 1,
+      sources: 1,
+      inWanikani: true,
+      srsAvg: 9
+    })
+    const filters = highlightFiltersFromSelection(['year:1', 'srs:9-9'], '')
+    expect(isMapCellHighlighted(match, filters)).toBe(true)
+    expect(isMapCellHighlighted({ ...match, schoolGrade: 2 }, filters)).toBe(false)
+    expect(isMapCellHighlighted({ ...match, srsAvg: 3 }, filters)).toBe(false)
+  })
+
+  it('parses highlight option values and menu groups', () => {
+    expect(parseHighlightGradeValue('year:jh')).toBe('jh')
+    expect(parseHighlightSrsValue('srs:unstudied')).toEqual({ min: -1, max: -1 })
+    expect(parseHighlightSrsValue('srs:5-9')).toEqual({ min: 5, max: 9 })
+    expect(parseHighlightWkLevelValue('wk:12')).toBe(12)
+    expect(parseHighlightWkLevelValue('wk:0')).toBeNull()
+    expect(parseHighlightWkLevelValue('wk:61')).toBeNull()
+
+    const withWk = buildHighlightMenuItems({ includeSrs: true, includeWkLevels: true })
+    expect(withWk).toHaveLength(3)
+    expect(withWk[0]?.[0]).toMatchObject({ type: 'label', label: 'School year' })
+    expect(withWk[1]?.[0]).toMatchObject({ type: 'label', label: 'SRS stage' })
+    expect(withWk[2]?.[0]).toMatchObject({ type: 'label', label: 'WaniKani level' })
+    expect(withWk[2]).toHaveLength(61) // label + 60 levels
+
+    const withoutWk = buildHighlightMenuItems({ includeSrs: false, includeWkLevels: false })
+    expect(withoutWk).toHaveLength(1)
+    expect(buildHighlightMenuItems()).toHaveLength(1)
+
+    expect(filterHighlightSelectionForSources(['year:1', 'srs:1-4', 'wk:3'], false)).toEqual(['year:1'])
+    expect(filterHighlightSelectionForSources(['year:1', 'srs:1-4', 'wk:3'], true)).toEqual([
+      'year:1',
+      'srs:1-4',
+      'wk:3'
+    ])
   })
 })

@@ -200,7 +200,7 @@ Restart `pnpm dev` whenever you change `.env`.
 |---------|----------|
 | **Order** | Jōyō appearance (default), WaniKani, SRS, usage, accuracy, reading count, or stroke count — see [Ordering modes](#ordering-modes) |
 | **Color mode** | -- (uniform grey, default), School year, SRS, accuracy, WaniKani level, stroke-count, or reading-count heatmap — see [Color modes](#color-modes) |
-| **Highlight year / SRS** | Dim cells that do not match (visual only) |
+| **Highlight** | Multi-select school year, SRS bands, and/or WK levels 1–60 (OR within a category, AND across). Dims non-matches |
 | **Search** | Enter a radical, kanji, or kana reading to highlight matches (components via Jisho parts; readings via Kanjidic on/kun + WK nanori on sync) |
 | **Filters** | **Remove** untracked, unstudied, or unhighlighted cells from the grid |
 | **Columns** | 10–70 (step 5; 10/15/20 for mobile); default 40. Grid renders n+1 tracks: a transparent row-index gutter (0, n, 2n, …) plus n kanji columns |

@@ -183,13 +183,13 @@ function wordSegments(word: string, kanji: string | null): WordSegment[] {
       />
 
       <div
-        class="relative z-10 flex max-h-[min(90dvh,52rem)] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-default bg-default shadow-xl"
+        class="relative z-10 flex max-h-[min(90dvh,52rem)] w-full max-w-[50rem] flex-col overflow-hidden rounded-xl border border-default bg-default shadow-xl"
         @click.stop
       >
         <header class="flex shrink-0 items-start justify-between gap-3 border-b border-default px-4 py-3">
           <div class="min-w-0 flex-1">
             <div class="flex items-start gap-4">
-              <p class="shrink-0 text-5xl font-bold leading-none text-highlighted">
+              <p class="km-kanji shrink-0 text-5xl leading-none text-highlighted">
                 {{ character }}
               </p>
               <div

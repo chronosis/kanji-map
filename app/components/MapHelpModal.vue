@@ -66,7 +66,7 @@ const statusLegend = [
                 class="relative flex items-center justify-center rounded-sm km-year km-g3 text-base font-medium leading-none origin-top-left"
                 style="width: 44px; height: 55px; transform: scale(2.75)"
               >
-                <span class="select-none font-bold text-gray-900 dark:text-gray-950">
+                <span class="km-kanji select-none text-gray-900 dark:text-gray-950">
                   漢
                 </span>
                 <span class="pointer-events-none absolute top-0.5 left-0.5 text-[0.6rem] font-bold leading-none text-gray-900">

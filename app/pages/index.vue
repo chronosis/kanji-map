@@ -2,7 +2,11 @@
 import type { ColorMode, MapCell, MapFilterMode, OrderMode } from '../../shared/types/kanji'
 import { isOmittedByMapFilter } from '../../shared/utils/colors'
 import {
+  buildHighlightMenuItems,
+  filterHighlightSelectionForSources,
+  highlightFiltersFromSelection,
   isMapCellDimmed,
+  type HighlightOptionValue,
   type MapHighlightFilters
 } from '../../shared/utils/map-highlight'
 import {
@@ -12,6 +16,13 @@ import {
   type GridColumnCount
 } from '../../shared/utils/grid-columns'
 import { sortMapCells } from '../../shared/utils/kanji-order'
+import {
+  WK_GATED_COLOR_MODES,
+  WK_GATED_ORDER_MODES,
+  coerceMapUiSettingsForSources,
+  colorModeItemsForSources,
+  orderModeItemsForSources
+} from '../../shared/utils/map-settings'
 
 useSeoMeta({
   title: 'Kanji Map',
@@ -25,11 +36,20 @@ const { data, pending, error } = await useFetch<{
 }>('/api/map')
 
 const { syncMessage } = useApiSync()
-const colorMode = ref<ColorMode>('none')
-const orderMode = ref<OrderMode>('joyo')
+const { defaultOrder, defaultColorMode, settings } = useMapSettings()
+
+const wanikaniConfigured = computed(
+  () => Boolean(data.value?.sourcesConfigured?.wanikani)
+)
+
+const initialSettings = coerceMapUiSettingsForSources(
+  settings.value,
+  wanikaniConfigured.value
+)
+const colorMode = ref<ColorMode>(initialSettings.defaultColorMode)
+const orderMode = ref<OrderMode>(initialSettings.defaultOrder)
 const columnCount = ref<GridColumnCount>(DEFAULT_GRID_COLUMNS)
-const highlightGrade = ref<string>('all')
-const highlightSrsBand = ref<string>('all')
+const highlightSelection = ref<Array<{ label: string, value: HighlightOptionValue }>>([])
 const mapFilter = ref<MapFilterMode>('none')
 const kanjiSearch = ref('')
 const gridRef = ref<{
@@ -47,55 +67,44 @@ function openKanjiDetail(character: string) {
   detailOpen.value = true
 }
 
-const wanikaniConfigured = computed(
-  () => Boolean(data.value?.sourcesConfigured?.wanikani)
-)
+const colorModeItems = computed(() => colorModeItemsForSources(wanikaniConfigured.value))
+const orderModeItems = computed(() => orderModeItemsForSources(wanikaniConfigured.value))
 
-const ALL_COLOR_MODE_ITEMS: Array<{ label: string, value: ColorMode }> = [
-  { label: '--', value: 'none' },
-  { label: 'School year', value: 'year' },
-  { label: 'SRS stage', value: 'srs' },
-  { label: 'Accuracy heatmap', value: 'accuracy' },
-  { label: 'WaniKani level', value: 'wk' },
-  { label: 'Stroke count heatmap', value: 'strokes' },
-  { label: 'Reading count heatmap', value: 'readings' }
-]
-
-const WK_GATED_COLOR_MODES: ReadonlySet<ColorMode> = new Set(['srs', 'accuracy', 'wk'])
-
-const ALL_ORDER_MODE_ITEMS: Array<{ label: string, value: OrderMode }> = [
-  { label: 'Jōyō appearance', value: 'joyo' },
-  { label: 'WaniKani order', value: 'wk' },
-  { label: 'SRS stage', value: 'srs' },
-  { label: 'Usage (frequency)', value: 'usage' },
-  { label: 'Accuracy', value: 'accuracy' },
-  { label: 'Number of readings', value: 'readings' },
-  { label: 'Stroke count', value: 'strokes' }
-]
-
-const colorModeItems = computed(() => {
-  if (wanikaniConfigured.value) return ALL_COLOR_MODE_ITEMS
-  return ALL_COLOR_MODE_ITEMS.filter(item => !WK_GATED_COLOR_MODES.has(item.value))
-})
-
-const orderModeItems = computed(() => {
-  if (wanikaniConfigured.value) return ALL_ORDER_MODE_ITEMS
-  return ALL_ORDER_MODE_ITEMS.filter(item => item.value !== 'srs' && item.value !== 'accuracy')
-})
+const highlightItems = computed(() => buildHighlightMenuItems({
+  includeSrs: wanikaniConfigured.value,
+  includeWkLevels: wanikaniConfigured.value
+}))
 
 watch(
   wanikaniConfigured,
   (configured) => {
-    if (configured) return
-    if (WK_GATED_COLOR_MODES.has(colorMode.value)) {
-      colorMode.value = 'strokes'
-    }
-    if (orderMode.value === 'srs' || orderMode.value === 'accuracy') {
-      orderMode.value = 'joyo'
+    const coerced = coerceMapUiSettingsForSources({
+      kanjiFont: settings.value.kanjiFont,
+      defaultOrder: orderMode.value,
+      defaultColorMode: colorMode.value
+    }, configured)
+    colorMode.value = coerced.defaultColorMode
+    orderMode.value = coerced.defaultOrder
+    if (!configured) {
+      const allowed = new Set(filterHighlightSelectionForSources(
+        highlightSelection.value.map(item => item.value),
+        false
+      ))
+      highlightSelection.value = highlightSelection.value.filter(item => allowed.has(item.value))
     }
   },
   { immediate: true }
 )
+
+watch(defaultOrder, (next) => {
+  if (WK_GATED_ORDER_MODES.has(next) && !wanikaniConfigured.value) return
+  orderMode.value = next
+})
+
+watch(defaultColorMode, (next) => {
+  if (WK_GATED_COLOR_MODES.has(next) && !wanikaniConfigured.value) return
+  colorMode.value = next
+})
 
 const columnItems = GRID_COLUMN_OPTIONS.map(n => ({
   label: String(n),
@@ -111,26 +120,6 @@ const columnCountSelect = computed({
   }
 })
 
-/** MEXT only assigns 小学校 years 1–6; remaining jōyō are 中学+ (no official 7–12 list). */
-const gradeItems = [
-  { label: 'All years', value: 'all' },
-  { label: '小1', value: '1' },
-  { label: '小2', value: '2' },
-  { label: '小3', value: '3' },
-  { label: '小4', value: '4' },
-  { label: '小5', value: '5' },
-  { label: '小6', value: '6' },
-  { label: '中学+ (jōyō)', value: 'jh' }
-]
-
-const srsBandItems = [
-  { label: 'All SRS', value: 'all' },
-  { label: 'Unstudied', value: 'unstudied' },
-  { label: 'Apprentice (1–4)', value: '1-4' },
-  { label: 'Guru+ (5–9)', value: '5-9' },
-  { label: 'Burned (9)', value: '9-9' }
-]
-
 const mapFilterItems = [
   { label: 'None', value: 'none' },
   { label: 'Untracked', value: 'untracked' },
@@ -138,30 +127,12 @@ const mapFilterItems = [
   { label: 'Unhighlighted', value: 'unhighlighted' }
 ]
 
-const gradeFilter = computed((): number | 'jh' | null => {
-  if (highlightGrade.value === 'all') return null
-  if (highlightGrade.value === 'jh') return 'jh'
-  return Number(highlightGrade.value)
-})
-
-const highlightSrsMin = computed(() => {
-  if (highlightSrsBand.value === 'all') return null
-  if (highlightSrsBand.value === 'unstudied') return -1
-  return Number(highlightSrsBand.value.split('-')[0])
-})
-
-const highlightSrsMax = computed(() => {
-  if (highlightSrsBand.value === 'all') return null
-  if (highlightSrsBand.value === 'unstudied') return -1
-  return Number(highlightSrsBand.value.split('-')[1])
-})
-
-const highlightFilters = computed((): MapHighlightFilters => ({
-  highlightGrade: gradeFilter.value,
-  highlightSrsMin: highlightSrsMin.value,
-  highlightSrsMax: highlightSrsMax.value,
-  searchQuery: kanjiSearch.value
-}))
+const highlightFilters = computed((): MapHighlightFilters => (
+  highlightFiltersFromSelection(
+    highlightSelection.value.map(item => item.value),
+    kanjiSearch.value
+  )
+))
 
 function cellFilterInput(cell: MapCell) {
   return {
@@ -228,21 +199,15 @@ watch(mapFilter, () => {
           />
         </UFormField>
 
-        <UFormField label="Highlight year">
-          <USelect
-            v-model="highlightGrade"
-            :items="gradeItems"
-            value-key="value"
-            class="w-44"
-          />
-        </UFormField>
-
-        <UFormField label="Highlight SRS">
-          <USelect
-            v-model="highlightSrsBand"
-            :items="srsBandItems"
-            value-key="value"
-            class="w-48"
+        <UFormField label="Highlight">
+          <USelectMenu
+            v-model="highlightSelection"
+            multiple
+            by="value"
+            :items="highlightItems"
+            :search-input="{ placeholder: 'Filter highlights…' }"
+            placeholder="None"
+            class="w-72"
           />
         </UFormField>
 

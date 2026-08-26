@@ -4,7 +4,13 @@ useHead({
     { name: 'viewport', content: 'width=device-width, initial-scale=1' }
   ],
   link: [
-    { rel: 'icon', href: '/favicon.ico' }
+    { rel: 'icon', href: '/favicon.ico' },
+    { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
+    { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
+    {
+      rel: 'stylesheet',
+      href: 'https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700&family=Noto+Serif+JP:wght@400;700&family=Yuji+Syuku&display=swap'
+    }
   ],
   htmlAttrs: {
     lang: 'en'
@@ -17,6 +23,14 @@ useSeoMeta({
 })
 
 const { syncing, runSync } = useApiSync()
+useMapSettings()
+
+const settingsOpen = ref(false)
+
+const { data: sourcesConfigured } = await useFetch<{
+  wanikani: boolean
+  bunpro: boolean
+}>('/api/sources')
 </script>
 
 <template>
@@ -51,6 +65,16 @@ const { syncing, runSync } = useApiSync()
               Sync APIs
             </UButton>
             <UColorModeButton />
+            <UTooltip text="Settings">
+              <UButton
+                icon="i-lucide-settings"
+                color="neutral"
+                variant="ghost"
+                square
+                aria-label="Settings"
+                @click="settingsOpen = true"
+              />
+            </UTooltip>
           </div>
         </template>
       </UHeader>
@@ -60,6 +84,11 @@ const { syncing, runSync } = useApiSync()
           <NuxtPage />
         </div>
       </UMain>
+
+      <MapSettingsModal
+        v-model:open="settingsOpen"
+        :wanikani-configured="Boolean(sourcesConfigured?.wanikani)"
+      />
     </div>
   </UApp>
 </template>
