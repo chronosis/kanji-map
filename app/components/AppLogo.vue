@@ -4,6 +4,7 @@
     fill="none"
     xmlns="http://www.w3.org/2000/svg"
     aria-hidden="true"
+    class="km-app-logo"
   >
     <rect
       x="2"
@@ -11,14 +12,14 @@
       width="28"
       height="28"
       rx="6"
-      class="fill-primary"
+      class="km-app-logo-bg"
     />
     <text
       x="16"
-      y="22"
+      y="24"
       text-anchor="middle"
-      class="fill-white km-logo-kanji"
-      font-size="16"
+      class="km-logo-kanji km-app-logo-kanji"
+      font-size="22"
     >
       漢
     </text>

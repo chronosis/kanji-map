@@ -22,6 +22,31 @@ body,
   --color-green-800: #016538;
   --color-green-900: #0A5331;
   --color-green-950: #052E16;
+
+  /* Header / favicon brand mark — theme-independent for contrast on light & dark chrome. */
+  --km-logo-bg: #3d6b9a;
+  --km-logo-fg: #e8b923;
+}
+
+/* Header logo — always Mincho regular, independent of map font setting. */
+.km-logo-kanji {
+  font-family: "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", serif;
+  font-weight: 400;
+}
+
+.km-app-logo-bg {
+  fill: var(--km-logo-bg);
+}
+
+.km-app-logo-kanji {
+  fill: var(--km-logo-fg);
+  stroke: #000;
+  stroke-width: 0.5px;
+  paint-order: stroke fill;
+}
+
+.km-app-logo {
+  filter: drop-shadow(2px 2px 1px rgb(0 0 0 / 0.35));
 }
 
 /* Kanji typeface preferences (cookie → html[data-kanji-font] or local preview). */
@@ -44,12 +69,6 @@ html[data-kanji-font="calligraphic"],
 .km-kanji {
   font-family: var(--km-kanji-font);
   font-feature-settings: "palt" 0;
-  font-weight: 400;
-}
-
-/* Header logo — always Mincho regular, independent of map font setting. */
-.km-logo-kanji {
-  font-family: "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", serif;
   font-weight: 400;
 }
 

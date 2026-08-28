@@ -1,0 +1,12 @@
+<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="2" y="2" width="28" height="28" rx="6" fill="#3d6b9a" />
+  <text
+    x="16"
+    y="24"
+    text-anchor="middle"
+    fill="#e8b923"
+    font-family="Noto Serif JP, Hiragino Mincho ProN, Yu Mincho, serif"
+    font-size="22"
+    font-weight="400"
+  >漢</text>
+</svg>

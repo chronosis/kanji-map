@@ -4,7 +4,7 @@ useHead({
     { name: 'viewport', content: 'width=device-width, initial-scale=1' }
   ],
   link: [
-    { rel: 'icon', href: '/favicon.ico' },
+    { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
     { rel: 'preconnect', href: 'https://fonts.googleapis.com' },
     { rel: 'preconnect', href: 'https://fonts.gstatic.com', crossorigin: '' },
     {
@@ -49,7 +49,7 @@ const { data: sourcesConfigured } = await useFetch<{
             to="/"
             class="flex items-center gap-2 font-semibold text-highlighted"
           >
-            <AppLogo class="h-9 w-9 shrink-0" />
+            <AppLogo class="h-10 w-10 shrink-0" />
             <span>Kanji Map</span>
           </NuxtLink>
         </template>
