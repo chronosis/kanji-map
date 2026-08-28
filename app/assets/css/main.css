@@ -40,9 +40,7 @@ body,
 
 .km-app-logo-kanji {
   fill: var(--km-logo-fg);
-  stroke: #000;
-  stroke-width: 0.5px;
-  paint-order: stroke fill;
+  paint-order: fill;
 }
 
 .km-app-logo {
