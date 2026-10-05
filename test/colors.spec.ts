@@ -16,6 +16,7 @@ import {
   invertedCountHeatmapPct,
   schoolYearBand,
   jlptBand,
+  wkLevelGroupBand,
   srsBand,
   srsBandColor,
   srsBackground,
@@ -151,6 +152,60 @@ describe('colors', () => {
     expect(cellVisualClass('jlpt', input({ jlptLevel: 'N3' }))).toBe('km-jlpt km-n3')
     expect(cellVisualClass('jlpt', input({ jlptLevel: 'N1' }))).toBe('km-jlpt km-n1')
     expect(cellVisualClass('jlpt', input({ jlptLevel: null }))).toBe('km-jlpt km-other')
+  })
+
+  it('maps WaniKani levels onto decade color bands', () => {
+    expect(wkLevelGroupBand(1)).toBe('wg1')
+    expect(wkLevelGroupBand(10)).toBe('wg1')
+    expect(wkLevelGroupBand(11)).toBe('wg2')
+    expect(wkLevelGroupBand(30)).toBe('wg3')
+    expect(wkLevelGroupBand(40)).toBe('wg4')
+    expect(wkLevelGroupBand(50)).toBe('wg5')
+    expect(wkLevelGroupBand(51)).toBe('wg6')
+    expect(wkLevelGroupBand(60)).toBe('wg6')
+    expect(wkLevelGroupBand(null)).toBe('other')
+    expect(wkLevelGroupBand(0)).toBe('other')
+    expect(cellVisualClass('wk-group', input({ wkLevel: 5 }))).toBe('km-wkg km-wg1')
+    expect(cellVisualClass('wk-group', input({ wkLevel: 25 }))).toBe('km-wkg km-wg3')
+    expect(cellVisualClass('wk-group', input({ wkLevel: 55 }))).toBe('km-wkg km-wg6')
+    expect(cellVisualClass('wk-group', input({ wkLevel: null }))).toBe('km-wkg km-other')
+  })
+
+  it('maps meaning and reading accuracy onto the heatmap', () => {
+    const studied = input({
+      inWanikani: true,
+      sources: SOURCE_WANIKANI,
+      srsAvg: 5,
+      accuracyAvg: 90,
+      meaningCorrect: 9,
+      meaningIncorrect: 1,
+      readingCorrect: 5,
+      readingIncorrect: 5
+    })
+    expect(cellVisualClass('accuracy', studied)).toBe('km-acc km-acc-30')
+    expect(cellVisualClass('accuracy-meaning', studied)).toBe('km-acc km-acc-30')
+    expect(cellVisualClass('accuracy-reading', studied)).toBe('km-acc km-acc-16')
+
+    const noMeaningAttempts = input({
+      inWanikani: true,
+      sources: SOURCE_WANIKANI,
+      srsAvg: 5,
+      accuracyAvg: 90,
+      meaningCorrect: 0,
+      meaningIncorrect: 0,
+      readingCorrect: 10,
+      readingIncorrect: 0
+    })
+    expect(cellVisualClass('accuracy-meaning', noMeaningAttempts)).toContain('km-unstudied')
+    expect(cellVisualClass('accuracy-reading', noMeaningAttempts)).toBe('km-acc km-acc-33')
+
+    expect(cellVisualClass('accuracy-meaning', input({
+      inWanikani: true,
+      sources: SOURCE_WANIKANI,
+      srsAvg: 0,
+      meaningCorrect: 5,
+      meaningIncorrect: 0
+    }))).toContain('km-unstudied')
   })
 
   it('paints every cell the same grey in none mode', () => {

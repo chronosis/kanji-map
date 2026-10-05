@@ -9,6 +9,8 @@ import {
   compareByStrokeCount,
   compareByUsage,
   compareByWk,
+  compareByWkMeaningAttempts,
+  compareByWkReadingAttempts,
   compareKanjiEntries,
   orderKanjiUnion,
   schoolYearLabel,
@@ -50,6 +52,10 @@ function cell(
     parts: [],
     readings: [],
     readingCount: 0,
+    meaningCorrect: 0,
+    meaningIncorrect: 0,
+    readingCorrect: 0,
+    readingIncorrect: 0,
     joyoIndex: 0,
     ...partial
   }
@@ -157,6 +163,86 @@ describe('kanji-order', () => {
     ]
     expect(sortMapCells(cells, 'strokes').map(c => c.character)).toEqual(['一', '外', '二', '漢', '稀'])
     expect(compareByStrokeCount(cells[2]!, cells[1]!)).toBeLessThan(0)
+  })
+
+  it('orders by WK meaning attempts descending then jōyō appearance', () => {
+    const cells = [
+      cell('一', {
+        meaningCorrect: 5,
+        meaningIncorrect: 5,
+        inJoyoo: true,
+        schoolGrade: 1,
+        strokes: 1
+      }),
+      cell('語', {
+        meaningCorrect: 20,
+        meaningIncorrect: 10,
+        inJoyoo: true,
+        schoolGrade: 2,
+        strokes: 14
+      }),
+      cell('漢', {
+        meaningCorrect: 20,
+        meaningIncorrect: 10,
+        inJoyoo: true,
+        schoolGrade: 3,
+        strokes: 13
+      }),
+      cell('外', {
+        meaningCorrect: 0,
+        meaningIncorrect: 0,
+        inJoyoo: false,
+        strokes: 5
+      }),
+      cell('未', {
+        meaningCorrect: 0,
+        meaningIncorrect: 0,
+        inJoyoo: true,
+        schoolGrade: 2,
+        strokes: 5
+      })
+    ]
+    expect(sortMapCells(cells, 'wk-meaning-attempts').map(c => c.character)).toEqual([
+      '語', '漢', '一', '未', '外'
+    ])
+    expect(compareByWkMeaningAttempts(cells[1]!, cells[0]!)).toBeLessThan(0)
+  })
+
+  it('orders by WK reading attempts descending then jōyō appearance', () => {
+    const cells = [
+      cell('一', {
+        readingCorrect: 2,
+        readingIncorrect: 1,
+        inJoyoo: true,
+        schoolGrade: 1,
+        strokes: 1
+      }),
+      cell('語', {
+        readingCorrect: 8,
+        readingIncorrect: 4,
+        inJoyoo: true,
+        schoolGrade: 2,
+        strokes: 14
+      }),
+      cell('漢', {
+        readingCorrect: 8,
+        readingIncorrect: 4,
+        inJoyoo: true,
+        schoolGrade: 3,
+        strokes: 13
+      }),
+      cell('未', {
+        readingCorrect: 0,
+        readingIncorrect: 0,
+        inJoyoo: true,
+        schoolGrade: 2,
+        strokes: 5
+      })
+    ]
+    expect(sortMapCells(cells, 'wk-reading-attempts').map(c => c.character)).toEqual([
+      '語', '漢', '一', '未'
+    ])
+    expect(compareByWkReadingAttempts(cells[1]!, cells[0]!)).toBeLessThan(0)
   })
 
   it('orders by SRS stage descending then WaniKani lesson order', () => {

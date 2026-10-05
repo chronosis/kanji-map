@@ -30,6 +30,8 @@ export const ALL_ORDER_MODE_ITEMS: ReadonlyArray<{ label: string, value: OrderMo
   { label: 'SRS stage', value: 'srs' },
   { label: 'Usage (frequency)', value: 'usage' },
   { label: 'Accuracy', value: 'accuracy' },
+  { label: 'WK total attempts (meaning)', value: 'wk-meaning-attempts' },
+  { label: 'WK total attempts (reading)', value: 'wk-reading-attempts' },
   { label: 'Number of readings', value: 'readings' },
   { label: 'Stroke count', value: 'strokes' }
 ]
@@ -39,14 +41,29 @@ export const ALL_COLOR_MODE_ITEMS: ReadonlyArray<{ label: string, value: ColorMo
   { label: 'School year', value: 'year' },
   { label: 'JLPT level', value: 'jlpt' },
   { label: 'SRS stage', value: 'srs' },
-  { label: 'Accuracy heatmap', value: 'accuracy' },
+  { label: 'Accuracy (Overall)', value: 'accuracy' },
+  { label: 'Accuracy (Meaning)', value: 'accuracy-meaning' },
+  { label: 'Accuracy (Reading)', value: 'accuracy-reading' },
   { label: 'WaniKani level', value: 'wk' },
-  { label: 'Stroke count heatmap', value: 'strokes' },
-  { label: 'Reading count heatmap', value: 'readings' }
+  { label: 'WaniKani level groups', value: 'wk-group' },
+  { label: 'Stroke count', value: 'strokes' },
+  { label: 'Reading count', value: 'readings' }
 ]
 
-export const WK_GATED_COLOR_MODES: ReadonlySet<ColorMode> = new Set(['srs', 'accuracy', 'wk'])
-export const WK_GATED_ORDER_MODES: ReadonlySet<OrderMode> = new Set(['srs', 'accuracy'])
+export const WK_GATED_COLOR_MODES: ReadonlySet<ColorMode> = new Set([
+  'srs',
+  'accuracy',
+  'accuracy-meaning',
+  'accuracy-reading',
+  'wk',
+  'wk-group'
+])
+export const WK_GATED_ORDER_MODES: ReadonlySet<OrderMode> = new Set([
+  'srs',
+  'accuracy',
+  'wk-meaning-attempts',
+  'wk-reading-attempts'
+])
 
 const KANJI_FONT_STYLES: ReadonlySet<string> = new Set(['gothic', 'mincho', 'calligraphic'])
 const ORDER_MODES: ReadonlySet<string> = new Set(ALL_ORDER_MODE_ITEMS.map(i => i.value))

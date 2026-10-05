@@ -22,7 +22,7 @@ useSeoMeta({
   description: 'Mastery map of Japanese school + JLPT kanji'
 })
 
-const { syncing, runSync } = useApiSync()
+const { syncing, runSync, alertsOpen, unreadCount } = useApiSync()
 useMapSettings()
 
 const settingsOpen = ref(false)
@@ -65,6 +65,23 @@ const { data: sourcesConfigured } = await useFetch<{
               Sync APIs
             </UButton>
             <UColorModeButton />
+            <UChip
+              :text="unreadCount > 99 ? '99+' : unreadCount"
+              :show="unreadCount > 0"
+              color="error"
+              size="3xl"
+            >
+              <UTooltip text="Alerts">
+                <UButton
+                  icon="i-lucide-bell"
+                  color="neutral"
+                  variant="ghost"
+                  square
+                  aria-label="Alerts"
+                  @click="alertsOpen = true"
+                />
+              </UTooltip>
+            </UChip>
             <UTooltip text="Settings">
               <UButton
                 icon="i-lucide-settings"
@@ -89,6 +106,7 @@ const { data: sourcesConfigured } = await useFetch<{
         v-model:open="settingsOpen"
         :wanikani-configured="Boolean(sourcesConfigured?.wanikani)"
       />
+      <MapAlertsSlideover />
     </div>
   </UApp>
 </template>

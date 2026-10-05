@@ -1,5 +1,6 @@
 import type { JlptLevel, KanjiUnionEntry, MapCell, OrderMode, SchoolGrade } from '../types/kanji'
 import { isUntracked, sortableAccuracy } from './colors'
+import { wkMeaningAttempts, wkReadingAttempts, type WanikaniReviewCounts } from './wanikani-review-stats'
 
 /** In WK order mode, untracked cells sort after all WK levels and get gridIndex ≥ this. */
 export const WK_UNTRACKED_SORT_OFFSET = 9000
@@ -202,6 +203,37 @@ export function compareByStrokeCount(a: KanjiUnionEntry, b: KanjiUnionEntry): nu
   return compareByJoyoAppearance(a, b)
 }
 
+type WkAttemptsOrderable = KanjiUnionEntry & Partial<WanikaniReviewCounts>
+
+function reviewCountsOf(cell: WkAttemptsOrderable): WanikaniReviewCounts {
+  return {
+    meaningCorrect: cell.meaningCorrect ?? 0,
+    meaningIncorrect: cell.meaningIncorrect ?? 0,
+    readingCorrect: cell.readingCorrect ?? 0,
+    readingIncorrect: cell.readingIncorrect ?? 0
+  }
+}
+
+/**
+ * WaniKani meaning attempts (correct + incorrect): most first; then jōyō appearance.
+ */
+export function compareByWkMeaningAttempts(a: WkAttemptsOrderable, b: WkAttemptsOrderable): number {
+  const attemptsA = wkMeaningAttempts(reviewCountsOf(a))
+  const attemptsB = wkMeaningAttempts(reviewCountsOf(b))
+  if (attemptsA !== attemptsB) return attemptsB - attemptsA
+  return compareByJoyoAppearance(a, b)
+}
+
+/**
+ * WaniKani reading attempts (correct + incorrect): most first; then jōyō appearance.
+ */
+export function compareByWkReadingAttempts(a: WkAttemptsOrderable, b: WkAttemptsOrderable): number {
+  const attemptsA = wkReadingAttempts(reviewCountsOf(a))
+  const attemptsB = wkReadingAttempts(reviewCountsOf(b))
+  if (attemptsA !== attemptsB) return attemptsB - attemptsA
+  return compareByJoyoAppearance(a, b)
+}
+
 export function compareKanjiEntries(a: KanjiUnionEntry, b: KanjiUnionEntry): number {
   return compareByGrade(a, b)
 }
@@ -224,6 +256,12 @@ export function getComparator(mode: OrderMode): (a: KanjiUnionEntry, b: KanjiUni
   }
   if (mode === 'strokes') {
     return compareByStrokeCount
+  }
+  if (mode === 'wk-meaning-attempts') {
+    return compareByWkMeaningAttempts as (a: KanjiUnionEntry, b: KanjiUnionEntry) => number
+  }
+  if (mode === 'wk-reading-attempts') {
+    return compareByWkReadingAttempts as (a: KanjiUnionEntry, b: KanjiUnionEntry) => number
   }
   return compareByGrade
 }

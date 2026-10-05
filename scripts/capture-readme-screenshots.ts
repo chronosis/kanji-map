@@ -196,17 +196,18 @@ async function main() {
     ['School year', 'color-year.png'],
     ['JLPT level', 'color-jlpt.png'],
     ['SRS stage', 'color-srs.png'],
-    ['Accuracy heatmap', 'color-accuracy.png'],
-    ['Accuracy heatmap', 'color-accuracy-joyo.png'],
+    ['Accuracy (Overall)', 'color-accuracy.png'],
+    ['Accuracy (Overall)', 'color-accuracy-joyo.png'],
     ['WaniKani level', 'color-wk.png'],
-    ['Stroke count heatmap', 'color-strokes.png'],
-    ['Reading count heatmap', 'color-readings.png']
+    ['WaniKani level groups', 'color-wk-group.png'],
+    ['Stroke count', 'color-strokes.png'],
+    ['Reading count', 'color-readings.png']
   ] as const) {
     await setSelect(page, 'Color mode', option)
     await shot(page, file)
   }
 
-  await setSelect(page, 'Color mode', 'Accuracy heatmap')
+  await setSelect(page, 'Color mode', 'Accuracy (Overall)')
   await setSelect(page, 'Order', 'WaniKani order')
   await shot(page, 'color-accuracy-wanikani.png')
 

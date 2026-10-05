@@ -30,6 +30,16 @@ const jlptLegend = [
   { label: 'None', className: 'km-jlpt km-other' }
 ] as const
 
+const wkGroupLegend = [
+  { label: '1–10', className: 'km-wkg km-wg1' },
+  { label: '11–20', className: 'km-wkg km-wg2' },
+  { label: '21–30', className: 'km-wkg km-wg3' },
+  { label: '31–40', className: 'km-wkg km-wg4' },
+  { label: '41–50', className: 'km-wkg km-wg5' },
+  { label: '51–60', className: 'km-wkg km-wg6' },
+  { label: 'None', className: 'km-wkg km-other' }
+] as const
+
 const srsLegend = [
   { label: 'Apprentice', className: 'km-srs km-apprentice' },
   { label: 'Guru', className: 'km-srs km-guru' },
@@ -61,7 +71,7 @@ const statusLegend = [
           </h3>
           <p class="text-muted">
             Each cell is a kanji. The background color comes from the selected color mode.
-            Corner numbers are fixed metadata (not the color mode).
+            Labels are fixed metadata (not the color mode).
           </p>
 
           <div class="flex flex-wrap items-center gap-8">
@@ -84,14 +94,20 @@ const statusLegend = [
                 <span class="pointer-events-none absolute top-0.5 right-0.5 text-[0.5rem] leading-none text-gray-800/80">
                   13
                 </span>
-                <span class="pointer-events-none absolute bottom-0.5 left-0.5 text-[0.5rem] leading-none text-gray-800/80">
-                  4
+                <span
+                  v-if="wanikaniConfigured !== false"
+                  class="pointer-events-none absolute top-1/2 left-0.5 -translate-y-1/2 text-[0.5rem] leading-none text-gray-800/80"
+                >
+                  10
                 </span>
                 <span
                   v-if="wanikaniConfigured !== false"
-                  class="pointer-events-none absolute bottom-0.5 right-0.5 text-[0.6rem] leading-none text-gray-800/80"
+                  class="pointer-events-none absolute bottom-0.5 left-0.5 text-[0.5rem] leading-none text-gray-800/80"
                 >
                   87%
+                </span>
+                <span class="pointer-events-none absolute bottom-0.5 right-0.5 text-[0.5rem] leading-none text-gray-800/80">
+                  4
                 </span>
               </div>
             </div>
@@ -105,16 +121,24 @@ const statusLegend = [
                 <span class="font-medium text-highlighted">Top-right</span>
                 — stroke count (<code class="text-xs">—</code> if unknown).
               </li>
+              <li v-if="wanikaniConfigured !== false">
+                <span class="font-medium text-highlighted">Middle-left</span>
+                — WaniKani level (<code class="text-xs">—</code> if the character is not in the WK catalog).
+              </li>
+              <li v-else>
+                <span class="font-medium text-highlighted">Middle-left</span>
+                — WaniKani level is hidden until a WaniKani API key is configured.
+              </li>
               <li>
-                <span class="font-medium text-highlighted">Bottom-left</span>
+                <span class="font-medium text-highlighted">Bottom-right</span>
                 — number of distinct on/kun reading stems (okurigana variants collapsed; nanori excluded).
               </li>
               <li v-if="wanikaniConfigured !== false">
-                <span class="font-medium text-highlighted">Bottom-right</span>
-                — review accuracy % (blank until there is positive SRS). Only available with a configured WK key.
+                <span class="font-medium text-highlighted">Bottom-left</span>
+                — review accuracy % (blank until there is positive SRS).
               </li>
               <li v-else>
-                <span class="font-medium text-highlighted">Bottom-right</span>
+                <span class="font-medium text-highlighted">Bottom-left</span>
                 — accuracy is hidden until a WaniKani API key is configured.
               </li>
               <li>
@@ -173,6 +197,28 @@ const statusLegend = [
               class="space-y-2"
             >
               <h4 class="text-xs font-semibold uppercase tracking-wide text-muted">
+                WaniKani level groups
+              </h4>
+              <div class="flex flex-wrap gap-2">
+                <div
+                  v-for="item in wkGroupLegend"
+                  :key="item.label"
+                  class="flex items-center gap-1.5"
+                >
+                  <span
+                    class="inline-block size-5 shrink-0 rounded-sm"
+                    :class="item.className"
+                  />
+                  <span class="text-muted">{{ item.label }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div
+              v-if="wanikaniConfigured !== false"
+              class="space-y-2"
+            >
+              <h4 class="text-xs font-semibold uppercase tracking-wide text-muted">
                 SRS stage
               </h4>
               <div class="flex flex-wrap gap-2">
@@ -195,8 +241,8 @@ const statusLegend = [
                 Heatmaps
               </h4>
               <p class="text-muted">
-                Accuracy, WaniKani level, stroke count, and reading count share one purple→green scale
-                (low / late / complex on the left; high / early / simple on the right).
+                Accuracy (overall / meaning / reading), WaniKani level, stroke count, and reading count
+                share one purple→green scale (low / late / complex on the left; high / early / simple on the right).
               </p>
               <div
                 class="h-3 w-full rounded-sm ring ring-default"
@@ -206,8 +252,13 @@ const statusLegend = [
               />
               <ul class="space-y-1 text-muted">
                 <li v-if="wanikaniConfigured !== false">
-                  <span class="font-medium text-highlighted">Accuracy</span>
+                  <span class="font-medium text-highlighted">Accuracy (Overall)</span>
                   — 0% (purple) → 100% (green). Grey when there is no positive SRS.
+                </li>
+                <li v-if="wanikaniConfigured !== false">
+                  <span class="font-medium text-highlighted">Accuracy (Meaning / Reading)</span>
+                  — same scale from WaniKani meaning-only or reading-only answer counts.
+                  Grey when there is no positive SRS or no attempts of that type.
                 </li>
                 <li v-if="wanikaniConfigured !== false">
                   <span class="font-medium text-highlighted">WaniKani level</span>

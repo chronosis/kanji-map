@@ -17,6 +17,8 @@ export type OrderMode
     | 'srs'
     | 'readings'
     | 'strokes'
+    | 'wk-meaning-attempts'
+    | 'wk-reading-attempts'
 
 export interface KanjiUnionEntry {
   character: string
@@ -72,6 +74,14 @@ export interface MapCell {
    * 0 when unknown / missing.
    */
   readingCount: number
+  /** Cumulative WaniKani meaning correct answers (0 when no progress row). */
+  meaningCorrect: number
+  /** Cumulative WaniKani meaning incorrect answers (0 when no progress row). */
+  meaningIncorrect: number
+  /** Cumulative WaniKani reading correct answers (0 when no progress row). */
+  readingCorrect: number
+  /** Cumulative WaniKani reading incorrect answers (0 when no progress row). */
+  readingIncorrect: number
 }
 
 export type ColorMode
@@ -80,9 +90,12 @@ export type ColorMode
     | 'jlpt'
     | 'srs'
     | 'accuracy'
+    | 'accuracy-meaning'
+    | 'accuracy-reading'
     | 'strokes'
     | 'readings'
     | 'wk'
+    | 'wk-group'
 
 /** Focus filter for untracked / unstudied cells (dims non-matches). */
 export type MapFilterMode = 'none' | 'untracked' | 'untracked-unstudied' | 'unhighlighted'

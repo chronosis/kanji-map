@@ -343,7 +343,11 @@ export async function getMapCells(): Promise<MapCell[]> {
   const mergedRows = await db.select().from(progressMerged)
   const wkRows = await db.select({
     character: progressWanikani.character,
-    subjectId: progressWanikani.subjectId
+    subjectId: progressWanikani.subjectId,
+    meaningCorrect: progressWanikani.meaningCorrect,
+    meaningIncorrect: progressWanikani.meaningIncorrect,
+    readingCorrect: progressWanikani.readingCorrect,
+    readingIncorrect: progressWanikani.readingIncorrect
   }).from(progressWanikani)
   const mergedMap = new Map(mergedRows.map(r => [r.character, r]))
   const wkMeta = new Map(wkRows.map(r => [r.character, r]))
@@ -393,7 +397,11 @@ export async function getMapCells(): Promise<MapCell[]> {
         radicalForms: parseJsonStringArray(ref.radicalFormsJson),
         parts: parseJsonStringArray(ref.partsJson),
         readings: parseJsonStringArray(ref.readingsJson),
-        readingCount: ref.readingCount ?? 0
+        readingCount: ref.readingCount ?? 0,
+        meaningCorrect: wk?.meaningCorrect ?? 0,
+        meaningIncorrect: wk?.meaningIncorrect ?? 0,
+        readingCorrect: wk?.readingCorrect ?? 0,
+        readingIncorrect: wk?.readingIncorrect ?? 0
       }
     })
 }

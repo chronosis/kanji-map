@@ -1,5 +1,6 @@
 import type { ColorMode } from '../types/kanji'
 import { SOURCE_WANIKANI } from '../types/kanji'
+import { accuracyFromCounts } from './merge-progress'
 
 /**
  * Cell visual bands — see `.ai/memory-bank/decisions/unstudied-vs-untracked.md`.
@@ -33,6 +34,14 @@ export interface CellVisualInput {
   strokes?: number | null
   /** Distinct reading count for reading-count heatmap coloring. */
   readingCount?: number
+  /** Cumulative WaniKani meaning correct answers. */
+  meaningCorrect?: number | null
+  /** Cumulative WaniKani meaning incorrect answers. */
+  meaningIncorrect?: number | null
+  /** Cumulative WaniKani reading correct answers. */
+  readingCorrect?: number | null
+  /** Cumulative WaniKani reading incorrect answers. */
+  readingIncorrect?: number | null
   /** WaniKani subject level 1–60 when known from the catalog. */
   wkLevel?: number | null
   /** Community JLPT level when known. */
@@ -204,6 +213,30 @@ export function jlptBand(jlptLevel: string | null | undefined): JlptColorBand {
   return 'other'
 }
 
+/**
+ * WaniKani level decade for the wk-group color mode
+ * (1–10 earliest → 51–60 latest).
+ */
+export type WkLevelGroupBand
+  = 'wg1'
+    | 'wg2'
+    | 'wg3'
+    | 'wg4'
+    | 'wg5'
+    | 'wg6'
+    | 'other'
+
+export function wkLevelGroupBand(wkLevel: number | null | undefined): WkLevelGroupBand {
+  if (wkLevel == null || wkLevel <= 0) return 'other'
+  if (wkLevel <= 10) return 'wg1'
+  if (wkLevel <= 20) return 'wg2'
+  if (wkLevel <= 30) return 'wg3'
+  if (wkLevel <= 40) return 'wg4'
+  if (wkLevel <= 50) return 'wg5'
+  if (wkLevel <= WANIKANI_MAX_LEVEL) return 'wg6'
+  return 'other'
+}
+
 export function cellVisualClass(
   mode: ColorMode,
   input: CellVisualInput,
@@ -219,6 +252,10 @@ export function cellVisualClass(
 
   if (mode === 'jlpt') {
     return `km-jlpt km-${jlptBand(input.jlptLevel)}`
+  }
+
+  if (mode === 'wk-group') {
+    return `km-wkg km-${wkLevelGroupBand(input.wkLevel)}`
   }
 
   if (mode === 'strokes') {
@@ -247,11 +284,16 @@ export function cellVisualClass(
     return `km-acc km-acc-${accuracyHeatmapBucket(pct)}`
   }
 
-  if (hasApiSrs(input.sources, input.srsAvg)) {
-    if (mode === 'accuracy') {
-      if (input.accuracyAvg == null) return 'km-srs km-unstudied'
-      return `km-acc km-acc-${accuracyHeatmapBucket(input.accuracyAvg)}`
+  if (isAccuracyColorMode(mode)) {
+    if (!hasApiSrs(input.sources, input.srsAvg)) {
+      return isUntracked(input) ? 'km-srs km-untracked' : 'km-srs km-unstudied'
     }
+    const pct = accuracyPctForColorMode(mode, input)
+    if (pct == null) return 'km-srs km-unstudied'
+    return `km-acc km-acc-${accuracyHeatmapBucket(pct)}`
+  }
+
+  if (hasApiSrs(input.sources, input.srsAvg)) {
     return `km-srs km-${srsBand(input.srsAvg)}`
   }
 
@@ -261,6 +303,34 @@ export function cellVisualClass(
   }
 
   return 'km-srs km-unstudied'
+}
+
+/** True for overall / meaning / reading accuracy heatmap color modes. */
+export function isAccuracyColorMode(mode: ColorMode): boolean {
+  return mode === 'accuracy'
+    || mode === 'accuracy-meaning'
+    || mode === 'accuracy-reading'
+}
+
+/**
+ * Accuracy % used for heatmap coloring.
+ * Overall uses merged accuracy; meaning/reading use WK answer counts.
+ * Null when there is no positive SRS or no applicable attempts.
+ */
+export function accuracyPctForColorMode(
+  mode: ColorMode,
+  input: CellVisualInput
+): number | null {
+  if (!isAccuracyColorMode(mode)) return null
+  if (!hasApiSrs(input.sources, input.srsAvg)) return null
+
+  if (mode === 'accuracy-meaning') {
+    return accuracyFromCounts(input.meaningCorrect ?? 0, input.meaningIncorrect ?? 0)
+  }
+  if (mode === 'accuracy-reading') {
+    return accuracyFromCounts(input.readingCorrect ?? 0, input.readingIncorrect ?? 0)
+  }
+  return sortableAccuracy(input.accuracyAvg, input.sources, input.srsAvg)
 }
 
 /** Anchor colors at the named accuracy levels (interpolated every 3% between these). */

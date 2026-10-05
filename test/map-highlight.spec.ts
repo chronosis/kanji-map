@@ -34,6 +34,10 @@ function cell(partial: Partial<MapCell> & Pick<MapCell, 'character'>): MapCell {
     parts: [],
     readings: [],
     readingCount: 0,
+    meaningCorrect: 0,
+    meaningIncorrect: 0,
+    readingCorrect: 0,
+    readingIncorrect: 0,
     joyoIndex: 0,
     ...partial
   }

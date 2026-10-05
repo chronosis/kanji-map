@@ -34,7 +34,7 @@ const { data, pending, error } = await useFetch<{
   sourcesConfigured?: { wanikani: boolean, bunpro: boolean }
 }>('/api/map')
 
-const { syncMessage } = useApiSync()
+const { alertsOpen, selectedAlertId } = useApiSync()
 const { defaultOrder, defaultColorMode, settings } = useMapSettings()
 
 const wanikaniConfigured = computed(
@@ -162,7 +162,13 @@ const heatmapScale = computed(() => {
 })
 
 watch(orderMode, () => {
-  // Re-fit pan/scale for the new order without resetting the column zoom level.
+  // Fit before the grid plans the slide, so on-screen cards are judged against the
+  // view the reorder will actually show. A later fit would hide the first row's
+  // cards and leave a hole at the start of the next row.
+  if (gridRef.value) {
+    gridRef.value.fitWidth()
+    return
+  }
   nextTick(() => gridRef.value?.fitWidth())
 })
 
@@ -274,12 +280,6 @@ watch(mapFilter, () => {
     </div>
 
     <p
-      v-if="syncMessage"
-      class="shrink-0 text-sm text-muted"
-    >
-      {{ syncMessage }}
-    </p>
-    <p
       v-if="error"
       class="shrink-0 text-sm text-error"
     >
@@ -302,7 +302,7 @@ watch(mapFilter, () => {
       :highlight-filters="highlightFilters"
       :heatmap-scale="heatmapScale"
       :show-accuracy="wanikaniConfigured"
-      :keyboard-enabled="!detailOpen && !helpOpen"
+      :keyboard-enabled="!detailOpen && !helpOpen && !alertsOpen && selectedAlertId == null"
       @select="openKanjiDetail"
     />
 
