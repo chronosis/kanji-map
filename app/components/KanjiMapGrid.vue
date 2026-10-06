@@ -230,16 +230,21 @@ const cellBoxStyle = {
   height: `${CELL_H_PX}px`
 }
 
-function cancelColorLerp() {
+function stopColorLerpFrame() {
   if (colorTransitionFrame) cancelAnimationFrame(colorTransitionFrame)
   colorTransitionFrame = 0
+  colorJobCount = 0
+}
+
+function cancelColorLerp() {
   const buffers = colorBuffers
+  const jobs = colorJobCount
+  stopColorLerpFrame()
   if (!buffers) return
-  for (let i = 0; i < colorJobCount; i++) {
+  for (let i = 0; i < jobs; i++) {
     const node = slottedCells[buffers.jobSlot[i]!]
     if (node) node.style.backgroundColor = ''
   }
-  colorJobCount = 0
 }
 
 function collectVisibleCells(): number {
@@ -397,8 +402,15 @@ watch(() => props.cells, () => {
 
 watch(() => props.colorMode, () => {
   capturedTransitionId = null
-  cancelColorLerp()
-})
+  stopColorLerpFrame()
+  snapshotCellColors()
+}, { flush: 'pre' })
+
+watch(() => props.colorMode, () => {
+  const jobs = measureColorJobs()
+  if (jobs === 0) return
+  beginColorLerp(jobs)
+}, { flush: 'post' })
 
 function ensureStable(cells: readonly MapCell[]) {
   const current = stableCells.value

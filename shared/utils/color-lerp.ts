@@ -1,7 +1,7 @@
 export type Rgb = readonly [number, number, number]
 
-/** Duration for map cell background blends after a sync. */
-export const CELL_COLOR_LERP_MS = 2000
+/** Duration for map cell background blends after a sync or color-mode change. */
+export const CELL_COLOR_LERP_MS = 1500
 
 /** Parse `rgb()` / `rgba()` from computed styles. */
 export function parseCssRgb(color: string): Rgb | null {
