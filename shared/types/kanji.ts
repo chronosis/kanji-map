@@ -97,8 +97,11 @@ export type ColorMode
     | 'wk'
     | 'wk-group'
 
-/** Focus filter for untracked / unstudied cells (dims non-matches). */
-export type MapFilterMode = 'none' | 'untracked' | 'untracked-unstudied' | 'unhighlighted'
+/**
+ * Toolbar filters that remove matching cells. Several may be active at once.
+ * An empty selection shows every cell.
+ */
+export type MapFilterId = 'untracked' | 'unstudied' | 'unhighlighted' | 'burned'
 
 export const SOURCE_WANIKANI = 1
 export const SOURCE_BUNPRO = 2

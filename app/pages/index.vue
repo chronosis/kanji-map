@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ColorMode, MapCell, MapFilterMode, OrderMode } from '../../shared/types/kanji'
+import type { ColorMode, MapCell, MapFilterId, OrderMode } from '../../shared/types/kanji'
 import { isOmittedByMapFilter } from '../../shared/utils/colors'
 import {
   filterHighlightSelectionForSources,
@@ -49,7 +49,7 @@ const colorMode = ref<ColorMode>(initialSettings.defaultColorMode)
 const orderMode = ref<OrderMode>(initialSettings.defaultOrder)
 const columnCount = ref<GridColumnCount>(DEFAULT_GRID_COLUMNS)
 const highlightSelection = ref<Array<{ label: string, value: HighlightOptionValue }>>([])
-const mapFilter = ref<MapFilterMode>('none')
+const mapFilterSelection = ref<Array<{ label: string, value: MapFilterId }>>([])
 const kanjiSearch = ref('')
 const gridRef = ref<{
   zoomIn: () => void
@@ -114,13 +114,6 @@ const columnCountSelect = computed({
   }
 })
 
-const mapFilterItems = [
-  { label: 'None', value: 'none' },
-  { label: 'Untracked', value: 'untracked' },
-  { label: 'Untracked & Unstudied', value: 'untracked-unstudied' },
-  { label: 'Unhighlighted', value: 'unhighlighted' }
-]
-
 const highlightFilters = computed((): MapHighlightFilters => (
   highlightFiltersFromSelection(
     highlightSelection.value.map(item => item.value),
@@ -144,7 +137,11 @@ const orderedCells = computed(() => {
   const filters = highlightFilters.value
   const filtered = data.value.cells.filter((cell) => {
     const dimmed = isMapCellDimmed(cell, filters)
-    return !isOmittedByMapFilter(mapFilter.value, cellFilterInput(cell), { dimmed })
+    return !isOmittedByMapFilter(
+      mapFilterSelection.value.map(item => item.value),
+      cellFilterInput(cell),
+      { dimmed }
+    )
   })
   return sortMapCells(filtered, orderMode.value)
 })
@@ -172,7 +169,7 @@ watch(orderMode, () => {
   nextTick(() => gridRef.value?.fitWidth())
 })
 
-watch(mapFilter, () => {
+watch(mapFilterSelection, () => {
   nextTick(() => gridRef.value?.fitWidth())
 })
 </script>
@@ -202,12 +199,7 @@ watch(mapFilter, () => {
         </UFormField>
 
         <UFormField label="Filters">
-          <USelect
-            v-model="mapFilter"
-            :items="mapFilterItems"
-            value-key="value"
-            class="w-56"
-          />
+          <FilterSelectMenu v-model="mapFilterSelection" />
         </UFormField>
 
         <UTooltip text="Help">

@@ -1,5 +1,5 @@
-/** Card reorder slide. Short so the motion starts quickly and finishes without dragging. */
-export const CELL_MOVE_MS = 420
+/** Card reorder slide. Matches the color-blend duration so tiles have time to travel. */
+export const CELL_MOVE_MS = 1500
 
 export interface CellMotionBuffers {
   capacity: number

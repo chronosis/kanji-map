@@ -287,14 +287,42 @@ describe('colors', () => {
       srsAvg: 5
     })
 
-    expect(isOmittedByMapFilter('none', untracked)).toBe(false)
-    expect(isOmittedByMapFilter('untracked', untracked)).toBe(true)
-    expect(isOmittedByMapFilter('untracked', unstudied)).toBe(false)
-    expect(isOmittedByMapFilter('untracked', studied)).toBe(false)
-    expect(isOmittedByMapFilter('untracked-unstudied', untracked)).toBe(true)
-    expect(isOmittedByMapFilter('untracked-unstudied', unstudied)).toBe(true)
-    expect(isOmittedByMapFilter('untracked-unstudied', studied)).toBe(false)
-    expect(isOmittedByMapFilter('unhighlighted', studied, { dimmed: true })).toBe(true)
-    expect(isOmittedByMapFilter('unhighlighted', studied, { dimmed: false })).toBe(false)
+    const burned = input({
+      inJoyoo: true,
+      schoolGrade: 1,
+      inWanikani: true,
+      sources: SOURCE_WANIKANI,
+      srsAvg: 9
+    })
+    const enlightened = input({
+      inJoyoo: true,
+      schoolGrade: 1,
+      inWanikani: true,
+      sources: SOURCE_WANIKANI,
+      srsAvg: 8
+    })
+
+    expect(isOmittedByMapFilter([], untracked)).toBe(false)
+    expect(isOmittedByMapFilter(['untracked'], untracked)).toBe(true)
+    expect(isOmittedByMapFilter(['untracked'], unstudied)).toBe(false)
+    expect(isOmittedByMapFilter(['untracked'], studied)).toBe(false)
+    expect(isOmittedByMapFilter(['unstudied'], unstudied)).toBe(true)
+    expect(isOmittedByMapFilter(['unstudied'], untracked)).toBe(false)
+    expect(isOmittedByMapFilter(['unstudied'], studied)).toBe(false)
+    expect(isOmittedByMapFilter(['untracked', 'unstudied'], untracked)).toBe(true)
+    expect(isOmittedByMapFilter(['untracked', 'unstudied'], unstudied)).toBe(true)
+    expect(isOmittedByMapFilter(['untracked', 'unstudied'], studied)).toBe(false)
+    expect(isOmittedByMapFilter(['unhighlighted'], studied, { dimmed: true })).toBe(true)
+    expect(isOmittedByMapFilter(['unhighlighted'], studied, { dimmed: false })).toBe(false)
+    expect(isOmittedByMapFilter(['burned'], burned)).toBe(true)
+    expect(isOmittedByMapFilter(['burned'], enlightened)).toBe(false)
+    expect(isOmittedByMapFilter(['burned'], studied)).toBe(false)
+    expect(isOmittedByMapFilter(['burned'], input({
+      inWanikani: true,
+      sources: 0,
+      srsAvg: 9
+    }))).toBe(false)
+    expect(isOmittedByMapFilter(['burned', 'untracked'], untracked)).toBe(true)
+    expect(isOmittedByMapFilter(['burned', 'untracked'], burned)).toBe(true)
   })
 })

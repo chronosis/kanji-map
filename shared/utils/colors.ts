@@ -1,4 +1,4 @@
-import type { ColorMode } from '../types/kanji'
+import type { ColorMode, MapFilterId } from '../types/kanji'
 import { SOURCE_WANIKANI } from '../types/kanji'
 import { accuracyFromCounts } from './merge-progress'
 
@@ -103,19 +103,39 @@ export function isUnstudied(input: CellVisualInput): boolean {
   return input.inWanikani && !hasApiSrs(input.sources, input.srsAvg)
 }
 
+export const MAP_FILTER_ITEMS: ReadonlyArray<{ label: string, value: MapFilterId }> = [
+  { label: 'Untracked', value: 'untracked' },
+  { label: 'Unstudied', value: 'unstudied' },
+  { label: 'Unhighlighted', value: 'unhighlighted' },
+  { label: 'Burned', value: 'burned' }
+]
+
 /**
- * Whether the toolbar Filters control should omit this cell from the grid.
- * Modes name the categories to hide (not highlight).
+ * Whether any active toolbar filter should omit this cell.
+ * Each filter names a category to hide. An empty list hides nothing.
  */
 export function isOmittedByMapFilter(
-  mode: 'none' | 'untracked' | 'untracked-unstudied' | 'unhighlighted',
+  active: readonly MapFilterId[],
   input: CellVisualInput,
   options?: { dimmed?: boolean }
 ): boolean {
-  if (mode === 'none') return false
-  if (mode === 'unhighlighted') return options?.dimmed === true
-  if (mode === 'untracked') return isUntracked(input)
-  return isUntracked(input) || isUnstudied(input)
+  for (let i = 0; i < active.length; i++) {
+    const mode = active[i]!
+    if (mode === 'unhighlighted') {
+      if (options?.dimmed === true) return true
+      continue
+    }
+    if (mode === 'untracked') {
+      if (isUntracked(input)) return true
+      continue
+    }
+    if (mode === 'unstudied') {
+      if (isUnstudied(input)) return true
+      continue
+    }
+    if (isBurnedSrs(input)) return true
+  }
+  return false
 }
 
 /** @deprecated Prefer input.inWanikani */
@@ -143,6 +163,11 @@ export function srsBand(srsAvg: number | null): SrsBand {
   if (stage <= 7) return 'master'
   if (stage <= 8) return 'enlightened'
   return 'burned'
+}
+
+/** Top WaniKani-scale SRS band (rounded stage 9), and only when an API stage exists. */
+export function isBurnedSrs(input: CellVisualInput): boolean {
+  return hasApiSrs(input.sources, input.srsAvg) && srsBand(input.srsAvg) === 'burned'
 }
 
 /** Hex fills matching `.km-srs.*` in `app/assets/css/main.css`. */

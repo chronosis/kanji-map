@@ -170,7 +170,7 @@ Match rule: **OR within a category**, **AND across categories**. Non-matches are
 
 **Search** (separate field) also dims non-matches for radical / component / kana reading queries.
 
-**Filters** can **remove** untracked, unstudied, or unhighlighted cells from the grid entirely.
+**Filters** is a multi-select. Each chosen filter **removes** matching cells: Untracked, Unstudied, Unhighlighted, or Burned (SRS stage 9). Turning several on hides every matching group.
 
 ## Kanji detail modal
 
@@ -204,7 +204,7 @@ A live **字** preview updates as you change the font. Cancel discards; Save wri
 |---------|----------|
 | **Search** | Radical, kanji, or kana reading — dims non-matches |
 | **Highlight** | Multi-select year / JLPT / SRS / WK level; collapsible groups |
-| **Filters** | Remove untracked, unstudied, or unhighlighted cells |
+| **Filters** | Toggle Untracked, Unstudied, Unhighlighted, and Burned; matching cells are removed |
 | **Help** | Cell legend + color / tracking explainer |
 | **Controls** | Zoom in / out, fit map to view |
 | **Order** | Jōyō, JLPT, WaniKani, SRS, usage, accuracy, readings, strokes |
