@@ -20,6 +20,7 @@ import { fetchBunproKanjiProgress } from '../adapters/bunpro'
 import { fetchWanikaniKanjiProgress, type WanikaniKanjiProgress } from '../adapters/wanikani'
 import { getDb } from './db'
 import { ensureSchema } from './ensure-schema'
+import { loadKanjiMeanings } from './kanji-meanings'
 import { loadKanjidicReadingIndex } from './kanji-readings'
 import { recordMapSnapshot } from './map-snapshots'
 
@@ -428,6 +429,7 @@ export async function getMapCells(config?: SyncConfig): Promise<MapCell[]> {
   }).from(progressWanikani)
   const mergedMap = new Map(mergedRows.map(r => [r.character, r]))
   const wkMeta = new Map(wkRows.map(r => [r.character, r]))
+  const meanings = loadKanjiMeanings()
 
   const joyoOrderByChar = new Map(
     refs
@@ -478,7 +480,8 @@ export async function getMapCells(config?: SyncConfig): Promise<MapCell[]> {
         meaningCorrect: wk?.meaningCorrect ?? 0,
         meaningIncorrect: wk?.meaningIncorrect ?? 0,
         readingCorrect: wk?.readingCorrect ?? 0,
-        readingIncorrect: wk?.readingIncorrect ?? 0
+        readingIncorrect: wk?.readingIncorrect ?? 0,
+        meaning: meanings.get(ref.character) ?? null
       }
     })
 }

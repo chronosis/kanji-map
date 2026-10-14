@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  cellBorderColor,
   cellVisualClass,
   formatAccuracy,
   hasApiSrs,
@@ -19,6 +20,8 @@ import {
   wkLevelGroupBand,
   srsBand,
   srsBandColor,
+  srsDisplayColor,
+  srsDisplayLabel,
   srsBackground,
   cellBackground
 } from '../shared/utils/colors'
@@ -43,6 +46,37 @@ describe('colors', () => {
     expect(formatAccuracy(100, { sources: 0, srsAvg: null })).toBe('--')
     expect(formatAccuracy(100, { sources: 1, srsAvg: 0 })).toBe('--')
     expect(formatAccuracy(100, { sources: 1, srsAvg: 3 })).toBe('100%')
+  })
+
+  it('uses a chromatic border only when the color mode would not be grey', () => {
+    const burned = input({ inWanikani: true, sources: SOURCE_WANIKANI, srsAvg: 9 })
+    const unstudied = input({ inWanikani: true, sources: SOURCE_WANIKANI, srsAvg: 0 })
+    const untracked = input({ inWanikani: false, sources: 0, srsAvg: null })
+    expect(cellBorderColor('none', burned)).toBeNull()
+    expect(cellBorderColor('srs', burned)).toBe('#818cf8')
+    expect(cellBorderColor('srs', unstudied)).toBeNull()
+    expect(cellBorderColor('srs', untracked)).toBeNull()
+    expect(cellBorderColor('year', input({ schoolGrade: 1, inJoyoo: true }))).toBe('#fca5a5')
+    expect(cellBorderColor('year', input({ schoolGrade: null, inJoyoo: false }))).toBeNull()
+    expect(cellBorderColor('jlpt', input({ jlptLevel: null }))).toBeNull()
+    expect(cellBorderColor('accuracy', input({
+      inWanikani: true,
+      sources: SOURCE_WANIKANI,
+      srsAvg: 9,
+      accuracyAvg: 100
+    }))).toBe('#22c55e')
+    expect(cellBorderColor('accuracy', unstudied)).toBeNull()
+  })
+
+  it('names the SRS level that paints the hover bar', () => {
+    const burned = input({ inWanikani: true, sources: SOURCE_WANIKANI, srsAvg: 9 })
+    expect(srsDisplayLabel(burned)).toBe('Burned (9)')
+    expect(srsDisplayColor(burned)).toBe('#818cf8')
+    expect(srsDisplayLabel(input({ inWanikani: true, sources: SOURCE_WANIKANI, srsAvg: 5 }))).toBe('Guru (5)')
+    expect(srsDisplayLabel(input({ inWanikani: true, sources: SOURCE_WANIKANI, srsAvg: 6 }))).toBe('Master (6)')
+    expect(srsDisplayLabel(input({ inWanikani: true, sources: SOURCE_WANIKANI, srsAvg: 0 }))).toBe('Unstudied')
+    expect(srsDisplayColor(input({ inWanikani: false, sources: 0, srsAvg: null }))).toBe('#737373')
+    expect(srsDisplayLabel(input({ inWanikani: false, sources: 0, srsAvg: null }))).toBe('Untracked')
   })
 
   it('treats accuracy as null for sort when SRS is zero', () => {

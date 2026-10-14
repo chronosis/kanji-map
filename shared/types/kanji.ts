@@ -82,6 +82,11 @@ export interface MapCell {
   readingCorrect: number
   /** Cumulative WaniKani reading incorrect answers (0 when no progress row). */
   readingIncorrect: number
+  /**
+   * Primary English meaning. WaniKani’s primary gloss when the catalog has one,
+   * otherwise the first Kanjidic gloss.
+   */
+  meaning?: string | null
 }
 
 export type ColorMode

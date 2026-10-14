@@ -144,6 +144,10 @@ const statusLegend = [
               <li>
                 Click a cell for meanings, readings, stroke order, and source links.
               </li>
+              <li>
+                <span class="font-medium text-highlighted">Border color</span>
+                — same scales as Color mode, drawn as a 2px edge. Grey cells have no border.
+              </li>
             </ul>
           </div>
         </section>

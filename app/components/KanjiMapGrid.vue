@@ -2,8 +2,11 @@
 import type { ColorMode, MapCell } from '../../shared/types/kanji'
 import type { MapHighlightFilters } from '../../shared/utils/map-highlight'
 import {
+  cellBorderColor,
   cellVisualClass,
-  formatAccuracy
+  formatAccuracy,
+  srsDisplayColor,
+  srsDisplayLabel
 } from '../../shared/utils/colors'
 import { isMapCellDimmed } from '../../shared/utils/map-highlight'
 import { schoolYearLabel } from '../../shared/utils/kanji-order'
@@ -51,6 +54,7 @@ const CELL_META_CLASS = 'pointer-events-none absolute text-[0.5rem] leading-none
 const props = defineProps<{
   cells: MapCell[]
   colorMode: ColorMode
+  borderColorMode: ColorMode
   highlightFilters: MapHighlightFilters
   /** Corpus maxes for stroke / reading heatmaps (stable across filters). */
   heatmapScale?: { maxStrokes: number, maxReadingCount: number }
@@ -202,17 +206,27 @@ function accuracyLabel(cell: MapCell): string {
   })
 }
 
+function tooltipMeta(cell: MapCell): string {
+  return `${schoolYearLabel(cell.schoolGrade, cell.inJoyoo)} / JLPT ${cell.jlptLevel ?? '—'} / WK ${wkLevelLabel(cell)}`
+}
+
+function tooltipAccuracy(cell: MapCell): string | null {
+  if (props.showAccuracy === false) return null
+  const label = accuracyLabel(cell)
+  if (!label || label === '--') return null
+  return label
+}
+
 function cellTitle(cell: MapCell): string {
+  const meaning = cell.meaning?.trim()
   const parts = [
-    cell.character,
-    schoolYearLabel(cell.schoolGrade, cell.inJoyoo),
-    `JLPT ${cell.jlptLevel ?? '—'}`
+    tooltipMeta(cell),
+    srsDisplayLabel(cell),
+    meaning ? `${cell.character} ${meaning}` : cell.character
   ]
-  if (props.showAccuracy !== false) parts.push(`WK ${wkLevelLabel(cell)}`)
-  parts.push(`SRS ${cell.srsAvg?.toFixed(1) ?? '—'}`)
-  const accuracy = accuracyLabel(cell)
+  const accuracy = tooltipAccuracy(cell)
   if (accuracy) parts.push(accuracy)
-  return parts.join(' · ')
+  return parts.join(', ')
 }
 
 const TOOLTIP_DELAY_MS = 400
@@ -221,7 +235,18 @@ const tooltipReference = ref<HTMLElement | null>(null)
 const tooltipOpen = ref(false)
 let tooltipTimer: ReturnType<typeof setTimeout> | null = null
 
-const tooltipText = computed(() => tooltipCell.value ? cellTitle(tooltipCell.value) : '')
+const tooltipView = computed(() => {
+  const cell = tooltipCell.value
+  if (!cell) return null
+  return {
+    barColor: srsDisplayColor(cell),
+    meta: tooltipMeta(cell),
+    srs: srsDisplayLabel(cell),
+    character: cell.character,
+    meaning: cell.meaning?.trim() || null,
+    accuracy: tooltipAccuracy(cell)
+  }
+})
 
 function clearTooltipTimer() {
   if (tooltipTimer == null) return
@@ -269,6 +294,16 @@ const cellBoxStyle = {
   top: '0px',
   width: `${CELL_W_PX}px`,
   height: `${CELL_H_PX}px`
+}
+
+function cellStyle(cell: MapCell): Record<string, string> {
+  const border = cellBorderColor(props.borderColorMode, cellVisualInput(cell), props.heatmapScale)
+  if (!border) return cellBoxStyle
+  return {
+    ...cellBoxStyle,
+    outline: `2px solid ${border}`,
+    outlineOffset: '-2px'
+  }
 }
 
 function stopColorLerpFrame() {
@@ -863,9 +898,9 @@ defineExpose({ zoomIn, zoomOut, resetView, fitWidth })
           class="km-cell absolute flex items-center justify-center rounded-sm text-base font-medium leading-none transition-opacity"
           :class="[
             cellClass(cell),
-            dimmed(cell) ? 'opacity-20' : 'opacity-100 hover:ring-2 hover:ring-primary'
+            dimmed(cell) ? 'opacity-20' : 'opacity-100 hover:ring-2 hover:ring-[#ffffff]'
           ]"
-          :style="cellBoxStyle"
+          :style="cellStyle(cell)"
           :data-character="cell.character"
           :aria-description="cellTitle(cell)"
           @click="onCellClick(cell.character)"
@@ -908,11 +943,41 @@ defineExpose({ zoomIn, zoomOut, resetView, fitWidth })
       </div>
     </div>
     <UTooltip
-      :open="tooltipOpen"
-      :text="tooltipText"
+      :open="tooltipOpen && tooltipView != null"
       :reference="tooltipReference ?? undefined"
       :content="{ side: 'top', sideOffset: 6 }"
-      :ui="{ content: 'h-auto whitespace-nowrap' }"
-    />
+      :ui="{ content: 'h-auto flex-col items-stretch overflow-hidden px-0 py-0 text-sm' }"
+    >
+      <template #content>
+        <div
+          v-if="tooltipView"
+          class="flex min-w-64 flex-col"
+        >
+          <div
+            class="h-[3px] w-full"
+            :style="{ backgroundColor: tooltipView.barColor }"
+          />
+          <div class="flex flex-col gap-1 px-2.5 py-2">
+            <div class="flex items-baseline justify-between gap-4">
+              <span>{{ tooltipView.meta }}</span>
+              <span class="shrink-0">{{ tooltipView.srs }}</span>
+            </div>
+            <div class="flex items-baseline justify-between gap-4">
+              <span class="min-w-0">
+                <span class="km-kanji text-base">{{ tooltipView.character }}</span>
+                <span
+                  v-if="tooltipView.meaning"
+                  class="ml-1.5"
+                >{{ tooltipView.meaning }}</span>
+              </span>
+              <span
+                v-if="tooltipView.accuracy"
+                class="shrink-0"
+              >{{ tooltipView.accuracy }}</span>
+            </div>
+          </div>
+        </div>
+      </template>
+    </UTooltip>
   </div>
 </template>

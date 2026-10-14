@@ -47,6 +47,7 @@ const initialSettings = coerceMapUiSettingsForSources(
   wanikaniConfigured.value
 )
 const colorMode = ref<ColorMode>(initialSettings.defaultColorMode)
+const borderColorMode = ref<ColorMode>('none')
 const orderMode = ref<OrderMode>(initialSettings.defaultOrder)
 const columnCount = ref<GridColumnCount>(DEFAULT_GRID_COLUMNS)
 const highlightSelection = ref<Array<{ label: string, value: HighlightOptionValue }>>([])
@@ -80,6 +81,9 @@ watch(
     }, configured)
     colorMode.value = coerced.defaultColorMode
     orderMode.value = coerced.defaultOrder
+    if (!configured && WK_GATED_COLOR_MODES.has(borderColorMode.value)) {
+      borderColorMode.value = 'none'
+    }
     if (!configured) {
       const allowed = new Set(filterHighlightSelectionForSources(
         highlightSelection.value.map(item => item.value),
@@ -262,6 +266,15 @@ watch(mapFilterSelection, () => {
           />
         </UFormField>
 
+        <UFormField label="Border color">
+          <USelect
+            v-model="borderColorMode"
+            :items="colorModeItems"
+            value-key="value"
+            class="w-48"
+          />
+        </UFormField>
+
         <UFormField label="Columns">
           <USelect
             v-model="columnCountSelect"
@@ -293,6 +306,7 @@ watch(mapFilterSelection, () => {
       class="min-h-0 flex-1"
       :cells="orderedCells"
       :color-mode="colorMode"
+      :border-color-mode="borderColorMode"
       :highlight-filters="highlightFilters"
       :heatmap-scale="heatmapScale"
       :show-accuracy="wanikaniConfigured"

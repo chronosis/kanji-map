@@ -187,6 +187,51 @@ export function srsBandColor(srsAvg: number | null): string {
   return SRS_BAND_COLORS[srsBand(srsAvg)]
 }
 
+const SRS_BAND_LABELS: Readonly<Record<SrsBand, string>> = {
+  unstudied: 'Unstudied',
+  untracked: 'Untracked',
+  locked: 'Locked',
+  apprentice: 'Apprentice',
+  guru: 'Guru',
+  master: 'Master',
+  enlightened: 'Enlightened',
+  burned: 'Burned'
+}
+
+/**
+ * SRS band used for labels and the hover bar.
+ * Matches SRS color mode: a positive API stage, otherwise untracked vs unstudied.
+ */
+export function srsDisplayBand(input: {
+  srsAvg: number | null
+  sources: number
+  inWanikani: boolean
+}): SrsBand {
+  if (hasApiSrs(input.sources, input.srsAvg)) return srsBand(input.srsAvg)
+  if (!input.inWanikani) return 'untracked'
+  return 'unstudied'
+}
+
+export function srsDisplayLabel(input: {
+  srsAvg: number | null
+  sources: number
+  inWanikani: boolean
+}): string {
+  const band = srsDisplayBand(input)
+  const name = SRS_BAND_LABELS[band]
+  if (band === 'unstudied' || band === 'untracked') return name
+  const stage = Math.round(input.srsAvg ?? 0)
+  return `${name} (${stage})`
+}
+
+export function srsDisplayColor(input: {
+  srsAvg: number | null
+  sources: number
+  inWanikani: boolean
+}): string {
+  return SRS_BAND_COLORS[srsDisplayBand(input)]
+}
+
 /**
  * Text color for accuracy % (same palette as the accuracy heatmap).
  * Null when accuracy is not displayable (`--`).
@@ -328,6 +373,70 @@ export function cellVisualClass(
   }
 
   return 'km-srs km-unstudied'
+}
+
+/** Chromatic fills shared by background classes. Grey bands are omitted. */
+const VISUAL_FILL_COLORS: Readonly<Record<string, string>> = {
+  'km-apprentice': '#fca5a5',
+  'km-guru': '#fbbf24',
+  'km-master': '#4ade80',
+  'km-enlightened': '#22d3ee',
+  'km-burned': '#818cf8',
+  'km-g1': '#fca5a5',
+  'km-g2': '#fdba74',
+  'km-g3': '#fbbf24',
+  'km-g4': '#4ade80',
+  'km-g5': '#22d3ee',
+  'km-g6': '#60a5fa',
+  'km-jh': '#818cf8',
+  'km-n5': '#fca5a5',
+  'km-n4': '#fdba74',
+  'km-n3': '#fbbf24',
+  'km-n2': '#4ade80',
+  'km-n1': '#818cf8',
+  'km-wg1': '#fca5a5',
+  'km-wg2': '#fdba74',
+  'km-wg3': '#fbbf24',
+  'km-wg4': '#4ade80',
+  'km-wg5': '#22d3ee',
+  'km-wg6': '#818cf8'
+}
+
+const GREY_VISUAL_CLASSES: ReadonlySet<string> = new Set([
+  'km-unstudied',
+  'km-locked',
+  'km-untracked',
+  'km-other'
+])
+
+/** Hex fill for a visual class, or null when that class is grey or colorless. */
+export function visualFillColor(className: string): string | null {
+  const parts = className.split(/\s+/)
+  for (const part of parts) {
+    if (GREY_VISUAL_CLASSES.has(part)) return null
+  }
+  for (const part of parts) {
+    if (part.startsWith('km-acc-')) {
+      const bucket = Number(part.slice('km-acc-'.length))
+      const hex = ACCURACY_HEATMAP_PALETTE[bucket]
+      if (hex) return hex
+    }
+    const fill = VISUAL_FILL_COLORS[part]
+    if (fill) return fill
+  }
+  return null
+}
+
+/**
+ * 2px border color for the same scale as Color mode.
+ * Null when that mode would paint grey or no color.
+ */
+export function cellBorderColor(
+  mode: ColorMode,
+  input: CellVisualInput,
+  scale?: HeatmapScale
+): string | null {
+  return visualFillColor(cellVisualClass(mode, input, scale))
 }
 
 /** True for overall / meaning / reading accuracy heatmap color modes. */
