@@ -10,6 +10,8 @@ import {
  */
 export function useApiSync() {
   const syncing = useState('kanji-api-syncing', () => false)
+  const syncStatus = useState('kanji-api-sync-status', () => '')
+  const browsingHistory = useState('kanji-map-browsing-history', () => false)
   const alerts = useState<MapAlert[]>('kanji-map-alerts', () => [])
   const alertsOpen = useState('kanji-map-alerts-open', () => false)
   const selectedAlertId = useState<string | null>('kanji-map-alert-selected', () => null)
@@ -41,23 +43,63 @@ export function useApiSync() {
 
   async function runSync() {
     syncing.value = true
+    syncStatus.value = 'Starting sync…'
     try {
-      const result = await $fetch<{
+      const response = await fetch('/api/sync', { method: 'POST' })
+      if (!response.ok || !response.body) {
+        const text = await response.text()
+        throw new Error(text.trim() || 'Sync failed')
+      }
+
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ''
+      let result: {
         wanikani: number
         bunpro: number
         merged: number
         warnings?: string[]
-      }>('/api/sync', {
-        method: 'POST'
-      })
+      } | null = null
+
+      while (true) {
+        const chunk = await reader.read()
+        if (chunk.done) break
+        buffer += decoder.decode(chunk.value, { stream: true })
+        const lines = buffer.split('\n')
+        buffer = lines.pop() ?? ''
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed) continue
+          const event = JSON.parse(trimmed) as {
+            type?: string
+            message?: string
+            result?: {
+              wanikani: number
+              bunpro: number
+              merged: number
+              warnings?: string[]
+            }
+          }
+          if (event.type === 'status' && event.message) syncStatus.value = event.message
+          if (event.type === 'done' && event.result) result = event.result
+          if (event.type === 'error') throw new Error(event.message || 'Sync failed')
+        }
+      }
+
+      if (!result) throw new Error('Sync ended before it finished')
       pushAlerts(alertsFromSyncResult(result))
+      const wasBrowsing = browsingHistory.value
+      if (wasBrowsing) await refreshNuxtData()
       const token = colorTransitionId.value + 1
       colorTransitionId.value = token
-      try {
-        await refreshNuxtData()
-      } catch (refreshErr) {
-        if (colorTransitionId.value === token) colorTransitionId.value = 0
-        throw refreshErr
+      browsingHistory.value = false
+      if (!wasBrowsing) {
+        try {
+          await refreshNuxtData()
+        } catch (refreshErr) {
+          if (colorTransitionId.value === token) colorTransitionId.value = 0
+          throw refreshErr
+        }
       }
     } catch (err) {
       pushAlerts([
@@ -65,11 +107,13 @@ export function useApiSync() {
       ])
     } finally {
       syncing.value = false
+      syncStatus.value = ''
     }
   }
 
   return {
     syncing,
+    syncStatus,
     alerts,
     alertsOpen,
     selectedAlertId,

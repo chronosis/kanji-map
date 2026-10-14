@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { formatSnapshotTimestamp } from '../shared/utils/map-snapshot'
+
 useHead({
   meta: [
     { name: 'viewport', content: 'width=device-width, initial-scale=1' }
@@ -22,15 +24,23 @@ useSeoMeta({
   description: 'Mastery map of Japanese school + JLPT kanji'
 })
 
-const { syncing, runSync, alertsOpen, unreadCount } = useApiSync()
+const { syncing, syncStatus, runSync, alertsOpen, unreadCount } = useApiSync()
 useMapSettings()
-
-const settingsOpen = ref(false)
-
-const { data: sourcesConfigured } = await useFetch<{
+const sourcesFetch = useFetch<{
   wanikani: boolean
   bunpro: boolean
 }>('/api/sources')
+const {
+  activeSnapshot,
+  atOldest,
+  atNewest,
+  stepping,
+  stepSnapshot
+} = await useMapTimeline()
+await sourcesFetch
+const sourcesConfigured = sourcesFetch.data
+
+const settingsOpen = ref(false)
 </script>
 
 <template>
@@ -45,17 +55,56 @@ const { data: sourcesConfigured } = await useFetch<{
         }"
       >
         <template #left>
-          <NuxtLink
-            to="/"
-            class="flex items-center gap-2 font-semibold text-highlighted"
-          >
-            <AppLogo class="h-10 w-10 shrink-0" />
-            <span>Kanji Map</span>
-          </NuxtLink>
+          <div class="flex min-w-0 items-center gap-3">
+            <NuxtLink
+              to="/"
+              class="flex items-center gap-2 font-semibold text-highlighted"
+            >
+              <AppLogo class="h-10 w-10 shrink-0" />
+              <span>Kanji Map</span>
+            </NuxtLink>
+            <div class="flex shrink-0 items-center gap-1">
+              <UButton
+                icon="i-lucide-chevron-left"
+                color="neutral"
+                variant="soft"
+                size="sm"
+                square
+                aria-label="Earlier snapshot"
+                :disabled="atOldest || stepping || syncing"
+                @click="stepSnapshot(-1)"
+              />
+              <UButton
+                icon="i-lucide-chevron-right"
+                color="neutral"
+                variant="soft"
+                size="sm"
+                square
+                aria-label="Later snapshot"
+                :disabled="atNewest || stepping || syncing"
+                @click="stepSnapshot(1)"
+              />
+              <time
+                v-if="activeSnapshot"
+                :datetime="activeSnapshot.capturedAt"
+                class="truncate ps-1 text-sm whitespace-nowrap text-muted"
+              >
+                {{ formatSnapshotTimestamp(activeSnapshot.capturedAt) }}
+              </time>
+            </div>
+          </div>
         </template>
 
         <template #right>
           <div class="flex items-center gap-2">
+            <p
+              v-if="syncing"
+              class="max-w-[14rem] text-right text-sm leading-snug text-muted sm:max-w-xs"
+              role="status"
+              aria-live="polite"
+            >
+              {{ syncStatus || 'Syncing…' }}
+            </p>
             <UButton
               icon="i-lucide-refresh-cw"
               :loading="syncing"

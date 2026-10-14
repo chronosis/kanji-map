@@ -1,4 +1,5 @@
 import { getMapCells, ensureSeeded } from '../utils/sync'
+import { ensureOpeningSnapshot } from '../utils/map-snapshots'
 import { DEFAULT_GRID_COLUMNS } from '../../shared/utils/grid-columns'
 
 export default defineEventHandler(async () => {
@@ -9,6 +10,7 @@ export default defineEventHandler(async () => {
     columns: DEFAULT_GRID_COLUMNS,
     total: cells.length,
     cells,
+    snapshots: await ensureOpeningSnapshot(cells),
     /** Which external APIs have credentials configured (never exposes the secrets). */
     sourcesConfigured: {
       wanikani: Boolean(String(config.wanikaniApiKey || '').trim()),

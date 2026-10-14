@@ -38,6 +38,10 @@ export const progressWanikani = sqliteTable('progress_wanikani', {
   meaningIncorrect: integer('meaning_incorrect').notNull().default(0),
   readingCorrect: integer('reading_correct').notNull().default(0),
   readingIncorrect: integer('reading_incorrect').notNull().default(0),
+  /** Next review time (assignment available_at). Null when burned or not scheduled. */
+  availableAt: text('available_at'),
+  /** Assignment data_updated_at. Null until a sync has stored an SRS snapshot. */
+  assignmentUpdatedAt: text('assignment_updated_at'),
   rawJson: text('raw_json'),
   syncedAt: text('synced_at').notNull()
 })
@@ -57,6 +61,19 @@ export const progressMerged = sqliteTable('progress_merged', {
   /** Bitmask: 1 = WaniKani, 2 = BunPro */
   sources: integer('sources').notNull().default(0),
   syncedAt: text('synced_at').notNull()
+})
+
+/** Key/value rows written by sync (for example the highest WaniKani level already catalogued). */
+export const syncMeta = sqliteTable('sync_meta', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull()
+})
+
+/** One row per distinct map view. Identical progress only moves captured_at forward. */
+export const mapSnapshots = sqliteTable('map_snapshots', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  capturedAt: text('captured_at').notNull(),
+  stateJson: text('state_json').notNull()
 })
 
 export type KanjiRef = typeof kanjiRef.$inferSelect

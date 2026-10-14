@@ -60,11 +60,11 @@ const statusLegend = [
     title="Map help"
     scrollable
     :ui="{
-      content: 'sm:max-w-[900px] -mt-2.5'
+      content: 'w-[min(72rem,calc(100vw-4rem))] max-w-[min(72rem,calc(100vw-4rem))]'
     }"
   >
     <template #body>
-      <div class="space-y-5 text-sm">
+      <div class="space-y-5 overflow-x-hidden text-sm">
         <section class="space-y-3">
           <h3 class="font-semibold text-highlighted">
             Cell labels

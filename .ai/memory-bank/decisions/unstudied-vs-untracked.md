@@ -9,11 +9,11 @@ These names are **exclusive** for greys with no positive SRS. Do not confuse “
 
 ## Critical: catalog ≠ assignment
 
-`inWanikani` is stamped onto `kanji_ref` during **Sync APIs** from the full `/subjects?types=kanji` list (including subjects the user has not unlocked).
+`inWanikani` is stamped onto `kanji_ref` during **Sync APIs** from WaniKani kanji subjects at the user’s current level and below (including subjects the user has not started). Higher levels are not downloaded until the account reaches them.
 
 It is **wrong** to treat “missing `progress_merged` / SRS null” as untracked. That is usually **unstudied** once the catalog has been synced.
 
-After a correct WK sync you should see on the order of **~2000** WaniKani kanji subjects in `progress_wanikani`, and `kanji_ref.in_wanikani = 1` for those that appear on the map.
+After a correct WK sync you should see WaniKani kanji from level 1 through the account level in `progress_wanikani`, and `kanji_ref.in_wanikani = 1` for those that appear on the map.
 
 ## Rules
 

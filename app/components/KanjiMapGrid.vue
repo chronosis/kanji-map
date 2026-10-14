@@ -215,6 +215,47 @@ function cellTitle(cell: MapCell): string {
   return parts.join(' · ')
 }
 
+const TOOLTIP_DELAY_MS = 400
+const tooltipCell = ref<MapCell | null>(null)
+const tooltipReference = ref<HTMLElement | null>(null)
+const tooltipOpen = ref(false)
+let tooltipTimer: ReturnType<typeof setTimeout> | null = null
+
+const tooltipText = computed(() => tooltipCell.value ? cellTitle(tooltipCell.value) : '')
+
+function clearTooltipTimer() {
+  if (tooltipTimer == null) return
+  clearTimeout(tooltipTimer)
+  tooltipTimer = null
+}
+
+function hideCellTooltip() {
+  clearTooltipTimer()
+  tooltipOpen.value = false
+  tooltipCell.value = null
+  tooltipReference.value = null
+}
+
+function onCellPointerEnter(cell: MapCell, event: PointerEvent) {
+  if (event.pointerType === 'touch' || dragging.value) return
+  const target = event.currentTarget
+  if (!(target instanceof HTMLElement)) return
+  clearTooltipTimer()
+  tooltipCell.value = cell
+  tooltipReference.value = target
+  tooltipOpen.value = false
+  tooltipTimer = setTimeout(() => {
+    tooltipTimer = null
+    if (tooltipReference.value === target) tooltipOpen.value = true
+  }, TOOLTIP_DELAY_MS)
+}
+
+function onCellPointerLeave(event: PointerEvent) {
+  const target = event.currentTarget
+  if (target instanceof HTMLElement && tooltipReference.value !== target) return
+  hideCellTooltip()
+}
+
 function strokesLabel(cell: MapCell): string {
   return cell.strokes != null ? String(cell.strokes) : '—'
 }
@@ -618,6 +659,7 @@ function stepColumns(direction: -1 | 1) {
 }
 
 function onWheel(event: WheelEvent) {
+  hideCellTooltip()
   event.preventDefault()
   if (event.ctrlKey) {
     stepColumns(event.deltaY > 0 ? 1 : -1)
@@ -640,6 +682,7 @@ function releasePointerCapture() {
 }
 
 function onPointerDown(event: PointerEvent) {
+  hideCellTooltip()
   dragging.value = true
   didPan.value = false
   lastPointer.x = event.clientX
@@ -760,6 +803,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  hideCellTooltip()
   window.removeEventListener('keydown', onWindowKeyDown)
   resizeObserver?.disconnect()
 })
@@ -823,8 +867,10 @@ defineExpose({ zoomIn, zoomOut, resetView, fitWidth })
           ]"
           :style="cellBoxStyle"
           :data-character="cell.character"
-          :title="cellTitle(cell)"
+          :aria-description="cellTitle(cell)"
           @click="onCellClick(cell.character)"
+          @pointerenter="onCellPointerEnter(cell, $event)"
+          @pointerleave="onCellPointerLeave"
         >
           <span class="km-kanji select-none text-gray-900 dark:text-gray-950">{{ cell.character }}</span>
           <span
@@ -861,5 +907,12 @@ defineExpose({ zoomIn, zoomOut, resetView, fitWidth })
         </button>
       </div>
     </div>
+    <UTooltip
+      :open="tooltipOpen"
+      :text="tooltipText"
+      :reference="tooltipReference ?? undefined"
+      :content="{ side: 'top', sideOffset: 6 }"
+      :ui="{ content: 'h-auto whitespace-nowrap' }"
+    />
   </div>
 </template>

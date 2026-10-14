@@ -5,7 +5,8 @@ import {
   kanjiRef,
   progressBunpro,
   progressMerged,
-  progressWanikani
+  progressWanikani,
+  syncMeta
 } from '../../drizzle/schema'
 import { SOURCE_BUNPRO, SOURCE_WANIKANI } from '../../shared/types/kanji'
 import type { JishoKanjiMeta } from '../adapters/jisho-kanji'
@@ -14,11 +15,32 @@ import { assignGridIndices, compareByJoyoAppearance } from '../../shared/utils/k
 import { parseJsonStringArray, stringifyJsonStringArray } from '../../shared/utils/json-arrays'
 import { countDistinctReadingStems, normalizeReadingsList } from '../../shared/utils/readings'
 import { mergeProgress } from '../../shared/utils/merge-progress'
+import type { KanjiSrsSnapshot } from '../../shared/utils/wanikani-sync-plan'
 import { fetchBunproKanjiProgress } from '../adapters/bunpro'
-import { fetchWanikaniKanjiProgress } from '../adapters/wanikani'
+import { fetchWanikaniKanjiProgress, type WanikaniKanjiProgress } from '../adapters/wanikani'
 import { getDb } from './db'
 import { ensureSchema } from './ensure-schema'
 import { loadKanjidicReadingIndex } from './kanji-readings'
+import { recordMapSnapshot } from './map-snapshots'
+
+const WK_SUBJECTS_THROUGH_LEVEL = 'wk_subjects_through_level'
+
+type SyncConfig = {
+  databasePath?: string
+  wanikaniApiKey?: string
+  bunproFrontendJwt?: string
+}
+
+export type SyncStatusReporter = (message: string) => void
+
+function resolveSyncConfig(config?: SyncConfig) {
+  const runtime = config ?? useRuntimeConfig()
+  return {
+    databasePath: String(runtime.databasePath || './data/kanji-map.sqlite'),
+    wanikaniApiKey: String(runtime.wanikaniApiKey || ''),
+    bunproFrontendJwt: String(runtime.bunproFrontendJwt || '')
+  }
+}
 
 function loadJishoMeta(): Record<string, JishoKanjiMeta> {
   const metaPath = resolve('data/kanji-jisho-meta.json')
@@ -171,6 +193,7 @@ async function applyWanikaniCatalog(
   await db.transaction(async (tx) => {
     for (const ref of refs) {
       const wk = byChar.get(ref.character)
+      if (!wk) continue
       const index = kanjidic.get(ref.character)
       const nanori = parseJsonStringArray(ref.nanoriJson)
       const readings = normalizeReadingsList([
@@ -196,29 +219,98 @@ async function applyWanikaniCatalog(
   })
 }
 
-export async function syncAllProgress() {
-  const config = useRuntimeConfig()
-  const databasePath = String(config.databasePath || './data/kanji-map.sqlite')
-  const wkKey = String(config.wanikaniApiKey || '')
-  const bpJwt = String(config.bunproFrontendJwt || '')
+async function readSubjectsThroughLevel(db: ReturnType<typeof getDb>): Promise<number> {
+  const [row] = await db.select().from(syncMeta)
+    .where(eq(syncMeta.key, WK_SUBJECTS_THROUGH_LEVEL))
+    .limit(1)
+  const level = Number(row?.value)
+  return Number.isFinite(level) ? level : 0
+}
+
+async function writeSubjectsThroughLevel(db: ReturnType<typeof getDb>, level: number) {
+  await db.insert(syncMeta).values({
+    key: WK_SUBJECTS_THROUGH_LEVEL,
+    value: String(level)
+  }).onConflictDoUpdate({
+    target: syncMeta.key,
+    set: { value: String(level) }
+  })
+}
+
+function wanikaniAssignments(row: WanikaniKanjiProgress, syncedAt: string) {
+  const shared = {
+    subjectId: row.subjectId,
+    srsStage: row.srsStage,
+    accuracyPct: row.accuracyPct,
+    meaningCorrect: row.meaningCorrect,
+    meaningIncorrect: row.meaningIncorrect,
+    readingCorrect: row.readingCorrect,
+    readingIncorrect: row.readingIncorrect,
+    availableAt: row.availableAt,
+    assignmentUpdatedAt: row.assignmentUpdatedAt,
+    rawJson: JSON.stringify(row),
+    syncedAt
+  }
+  if (!row.hasSubject) return shared
+  return {
+    ...shared,
+    wkLevel: row.level,
+    apiOrder: row.apiOrder
+  }
+}
+
+export async function syncAllProgress(onStatus?: SyncStatusReporter, config?: SyncConfig) {
+  const resolved = resolveSyncConfig(config)
+  const databasePath = resolved.databasePath
+  const wkKey = resolved.wanikaniApiKey
+  const bpJwt = resolved.bunproFrontendJwt
 
   await ensureSeeded(databasePath)
   const db = getDb()
   const syncedAt = new Date().toISOString()
 
-  let wkRows: Awaited<ReturnType<typeof fetchWanikaniKanjiProgress>> = []
+  let wkRows: WanikaniKanjiProgress[] = []
   let bpRows: Awaited<ReturnType<typeof fetchBunproKanjiProgress>> = []
   const warnings: string[] = []
 
   if (wkKey) {
-    wkRows = await fetchWanikaniKanjiProgress(wkKey)
+    const stored = await db.select({
+      character: progressWanikani.character,
+      subjectId: progressWanikani.subjectId,
+      wkLevel: progressWanikani.wkLevel,
+      srsStage: progressWanikani.srsStage,
+      availableAt: progressWanikani.availableAt,
+      assignmentUpdatedAt: progressWanikani.assignmentUpdatedAt
+    }).from(progressWanikani)
+    const snapshots: KanjiSrsSnapshot[] = []
+    for (const row of stored) {
+      if (row.subjectId == null) continue
+      snapshots.push({
+        character: row.character,
+        subjectId: row.subjectId,
+        wkLevel: row.wkLevel,
+        srsStage: row.srsStage,
+        availableAt: row.availableAt,
+        updatedAt: row.assignmentUpdatedAt
+      })
+    }
+    const fetched = await fetchWanikaniKanjiProgress(wkKey, {
+      snapshots,
+      subjectsThroughLevel: await readSubjectsThroughLevel(db),
+      onStatus
+    })
+    wkRows = fetched.rows
+    if (fetched.subjectsThroughLevel > 0) {
+      await writeSubjectsThroughLevel(db, fetched.subjectsThroughLevel)
+    }
   } else {
     warnings.push('WANIKANI_API_KEY is empty — skipped WaniKani sync')
+    onStatus?.('WaniKani API key is empty')
   }
 
   if (bpJwt) {
     try {
-      bpRows = await fetchBunproKanjiProgress(bpJwt)
+      bpRows = await fetchBunproKanjiProgress(bpJwt, onStatus)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'BunPro sync failed'
       warnings.push(message)
@@ -228,41 +320,23 @@ export async function syncAllProgress() {
     warnings.push('BUNPRO_FRONTEND_JWT is empty — skipped BunPro sync')
   }
 
-  // Full subject catalog → progress + kanji_ref membership flags.
+  onStatus?.('Saving progress…')
   for (const row of wkRows) {
+    const values = wanikaniAssignments(row, syncedAt)
     await db.insert(progressWanikani).values({
       character: row.character,
-      subjectId: row.subjectId,
-      wkLevel: row.level,
-      apiOrder: row.apiOrder,
-      srsStage: row.srsStage,
-      accuracyPct: row.accuracyPct,
-      meaningCorrect: row.meaningCorrect,
-      meaningIncorrect: row.meaningIncorrect,
-      readingCorrect: row.readingCorrect,
-      readingIncorrect: row.readingIncorrect,
-      rawJson: JSON.stringify(row),
-      syncedAt
+      wkLevel: row.hasSubject ? row.level : null,
+      apiOrder: row.hasSubject ? row.apiOrder : null,
+      ...values
     }).onConflictDoUpdate({
       target: progressWanikani.character,
-      set: {
-        subjectId: row.subjectId,
-        wkLevel: row.level,
-        apiOrder: row.apiOrder,
-        srsStage: row.srsStage,
-        accuracyPct: row.accuracyPct,
-        meaningCorrect: row.meaningCorrect,
-        meaningIncorrect: row.meaningIncorrect,
-        readingCorrect: row.readingCorrect,
-        readingIncorrect: row.readingIncorrect,
-        rawJson: JSON.stringify(row),
-        syncedAt
-      }
+      set: values
     })
   }
 
-  if (wkRows.length > 0) {
-    await applyWanikaniCatalog(db, wkRows)
+  const catalogRows = wkRows.filter(row => row.hasSubject)
+  if (catalogRows.length > 0) {
+    await applyWanikaniCatalog(db, catalogRows)
   }
 
   for (const row of bpRows) {
@@ -321,6 +395,9 @@ export async function syncAllProgress() {
     mergedCount++
   }
 
+  onStatus?.('Saving map snapshot…')
+  await recordMapSnapshot(await getMapCells(resolved), syncedAt)
+
   return {
     wanikani: wkRows.length,
     bunpro: bpRows.length,
@@ -335,9 +412,9 @@ export async function syncAllProgress() {
   }
 }
 
-export async function getMapCells(): Promise<MapCell[]> {
-  const config = useRuntimeConfig()
-  await ensureSeeded(String(config.databasePath || './data/kanji-map.sqlite'))
+export async function getMapCells(config?: SyncConfig): Promise<MapCell[]> {
+  const resolved = resolveSyncConfig(config)
+  await ensureSeeded(resolved.databasePath)
   const db = getDb()
   const refs = await db.select().from(kanjiRef)
   const mergedRows = await db.select().from(progressMerged)

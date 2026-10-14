@@ -37,8 +37,19 @@ export async function ensureSchema(databasePath = process.env.DATABASE_PATH || '
       meaning_incorrect INTEGER NOT NULL DEFAULT 0,
       reading_correct INTEGER NOT NULL DEFAULT 0,
       reading_incorrect INTEGER NOT NULL DEFAULT 0,
+      available_at TEXT,
+      assignment_updated_at TEXT,
       raw_json TEXT,
       synced_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS sync_meta (
+      key TEXT PRIMARY KEY NOT NULL,
+      value TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS map_snapshots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      captured_at TEXT NOT NULL,
+      state_json TEXT NOT NULL
     );
     CREATE TABLE IF NOT EXISTS progress_bunpro (
       character TEXT PRIMARY KEY NOT NULL,
@@ -87,7 +98,9 @@ export async function ensureSchema(databasePath = process.env.DATABASE_PATH || '
 
   for (const col of [
     'meaning_correct INTEGER NOT NULL DEFAULT 0',
-    'reading_correct INTEGER NOT NULL DEFAULT 0'
+    'reading_correct INTEGER NOT NULL DEFAULT 0',
+    'available_at TEXT',
+    'assignment_updated_at TEXT'
   ]) {
     try {
       await client.execute(`ALTER TABLE progress_wanikani ADD COLUMN ${col}`)

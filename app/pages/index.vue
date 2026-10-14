@@ -28,14 +28,15 @@ useSeoMeta({
   description: 'Pannable mastery map of jōyō + JLPT kanji from WaniKani and BunPro'
 })
 
-const { data, pending, error } = await useFetch<{
-  cells: MapCell[]
-  columns: number
-  sourcesConfigured?: { wanikani: boolean, bunpro: boolean }
-}>('/api/map')
-
 const { alertsOpen, selectedAlertId } = useApiSync()
 const { defaultOrder, defaultColorMode, settings } = useMapSettings()
+
+const {
+  data,
+  pending,
+  error,
+  viewCells
+} = await useMapTimeline()
 
 const wanikaniConfigured = computed(
   () => Boolean(data.value?.sourcesConfigured?.wanikani)
@@ -133,9 +134,10 @@ function cellFilterInput(cell: MapCell) {
 }
 
 const orderedCells = computed(() => {
-  if (!data.value?.cells) return []
+  const cells = viewCells.value
+  if (cells.length === 0 && !data.value?.cells) return []
   const filters = highlightFilters.value
-  const filtered = data.value.cells.filter((cell) => {
+  const filtered = cells.filter((cell) => {
     const dimmed = isMapCellDimmed(cell, filters)
     return !isOmittedByMapFilter(
       mapFilterSelection.value.map(item => item.value),
@@ -148,7 +150,7 @@ const orderedCells = computed(() => {
 
 /** Corpus-wide maxes so stroke/reading heatmaps stay stable under filters. */
 const heatmapScale = computed(() => {
-  const cells = data.value?.cells ?? []
+  const cells = viewCells.value.length > 0 ? viewCells.value : (data.value?.cells ?? [])
   let maxStrokes = 0
   let maxReadingCount = 0
   for (const cell of cells) {

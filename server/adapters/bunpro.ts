@@ -185,29 +185,38 @@ function ingestItems(map: Map<string, Acc>, items: unknown[]) {
   }
 }
 
-async function fetchAllReviewPages(token: string): Promise<unknown[]> {
+async function fetchAllReviewPages(
+  token: string,
+  onStatus?: (message: string) => void
+): Promise<unknown[]> {
   const all: unknown[] = []
   for (let page = 1; page <= 50; page++) {
+    onStatus?.(`Reading BunPro reviews · ${all.length.toLocaleString()} so far`)
     const payload = await bpFetch<unknown>(`/reviews?page=${page}&per_page=100`, token)
     if (!payload) break
     const items = unwrapItems(payload)
     if (!items.length) break
     all.push(...items)
+    onStatus?.(`Reading BunPro reviews · ${all.length.toLocaleString()} so far`)
     if (items.length < 100) break
   }
   return all
 }
 
-export async function fetchBunproKanjiProgress(token: string): Promise<BunproKanjiProgress[]> {
+export async function fetchBunproKanjiProgress(
+  token: string,
+  onStatus?: (message: string) => void
+): Promise<BunproKanjiProgress[]> {
   if (!isBunproFrontendToken(token)) return []
 
+  onStatus?.('Syncing BunPro reviews…')
   const map = new Map<string, Acc>()
 
   const [user, queue, due, reviewItems, lastSession, last24h] = await Promise.all([
     bpFetch<unknown>('/user', token),
     bpFetch<unknown>('/user/queue', token),
     bpFetch<unknown>('/user/due', token),
-    fetchAllReviewPages(token),
+    fetchAllReviewPages(token, onStatus),
     bpFetch<unknown>('/review_histories/last_session', token),
     bpFetch<unknown>('/review_histories/last_24_hours', token)
   ])
