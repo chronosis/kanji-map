@@ -1,6 +1,9 @@
 /** Card reorder slide. Matches the color-blend duration so tiles have time to travel. */
 export const CELL_MOVE_MS = 1500
 
+/** Fade when a card crosses a filter. Matches the stage-color blend. */
+export const CELL_FADE_MS = 1000
+
 export interface CellMotionBuffers {
   capacity: number
   /** Previous screen position, indexed by stable card slot. */
