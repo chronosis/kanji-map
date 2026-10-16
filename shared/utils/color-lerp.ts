@@ -47,6 +47,41 @@ export function rgbCss(r: number, g: number, b: number): string {
   return `rgb(${r}, ${g}, ${b})`
 }
 
+/** Parse `#rgb` / `#rrggbb` into 0–255 channels. */
+export function parseHexRgb(hex: string): Rgb | null {
+  const raw = hex.trim().replace(/^#/, '')
+  if (raw.length === 3) {
+    const r = raw[0]!
+    const g = raw[1]!
+    const b = raw[2]!
+    return [
+      Number.parseInt(r + r, 16),
+      Number.parseInt(g + g, 16),
+      Number.parseInt(b + b, 16)
+    ]
+  }
+  if (raw.length !== 6) return null
+  const value = Number.parseInt(raw, 16)
+  if (Number.isNaN(value)) return null
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255]
+}
+
+/** Write a hex color into preallocated channel buffers. */
+export function readHexRgbChannels(
+  hex: string,
+  slot: number,
+  r: Float32Array,
+  g: Float32Array,
+  b: Float32Array
+): boolean {
+  const rgb = parseHexRgb(hex)
+  if (!rgb) return false
+  r[slot] = rgb[0]
+  g[slot] = rgb[1]
+  b[slot] = rgb[2]
+  return true
+}
+
 /** Linear interpolation of an RGB color. `t` is clamped to 0–1. */
 export function lerpRgb(from: Rgb, to: Rgb, t: number): string {
   return rgbCss(
@@ -54,6 +89,19 @@ export function lerpRgb(from: Rgb, to: Rgb, t: number): string {
     lerpRgbChannel(from[1], to[1], t),
     lerpRgbChannel(from[2], to[2], t)
   )
+}
+
+/** CSS `linear-gradient` from two RGB stops. */
+export function gradientBackgroundImage(
+  angleDeg: number,
+  fromR: number,
+  fromG: number,
+  fromB: number,
+  toR: number,
+  toG: number,
+  toB: number
+): string {
+  return `linear-gradient(${angleDeg}deg, ${rgbCss(fromR, fromG, fromB)}, ${rgbCss(toR, toG, toB)})`
 }
 
 export interface CellColorBuffers {
@@ -64,6 +112,13 @@ export interface CellColorBuffers {
   toR: Float32Array
   toG: Float32Array
   toB: Float32Array
+  /** Secondary gradient stop (same as primary when the fill is solid). */
+  fromSR: Float32Array
+  fromSG: Float32Array
+  fromSB: Float32Array
+  toSR: Float32Array
+  toSG: Float32Array
+  toSB: Float32Array
   /** 1 when this slot had a readable color before the update. */
   active: Uint8Array
   /** Packed slots whose color actually changed. */
@@ -80,6 +135,12 @@ export function createCellColorBuffers(capacity: number): CellColorBuffers {
     toR: new Float32Array(size),
     toG: new Float32Array(size),
     toB: new Float32Array(size),
+    fromSR: new Float32Array(size),
+    fromSG: new Float32Array(size),
+    fromSB: new Float32Array(size),
+    toSR: new Float32Array(size),
+    toSG: new Float32Array(size),
+    toSB: new Float32Array(size),
     active: new Uint8Array(size),
     jobSlot: new Uint16Array(size)
   }
@@ -102,20 +163,48 @@ export function ensureCellColorBuffers(
   next.toR.set(existing.toR)
   next.toG.set(existing.toG)
   next.toB.set(existing.toB)
+  next.fromSR.set(existing.fromSR)
+  next.fromSG.set(existing.fromSG)
+  next.fromSB.set(existing.fromSB)
+  next.toSR.set(existing.toSR)
+  next.toSG.set(existing.toSG)
+  next.toSB.set(existing.toSB)
   next.active.set(existing.active)
   return next
 }
 
-/** Pack slots whose rounded channels differ. Returns how many colors changed. */
+function primaryChannelsEqual(buffers: CellColorBuffers, slot: number): boolean {
+  return Math.round(buffers.fromR[slot]!) === Math.round(buffers.toR[slot]!)
+    && Math.round(buffers.fromG[slot]!) === Math.round(buffers.toG[slot]!)
+    && Math.round(buffers.fromB[slot]!) === Math.round(buffers.toB[slot]!)
+}
+
+function secondaryChannelsEqual(buffers: CellColorBuffers, slot: number): boolean {
+  return Math.round(buffers.fromSR[slot]!) === Math.round(buffers.toSR[slot]!)
+    && Math.round(buffers.fromSG[slot]!) === Math.round(buffers.toSG[slot]!)
+    && Math.round(buffers.fromSB[slot]!) === Math.round(buffers.toSB[slot]!)
+}
+
+/** Pack slots whose rounded primary channels differ. Returns how many colors changed. */
 export function packChangedColorSlots(buffers: CellColorBuffers, slotCount: number): number {
   const limit = Math.min(slotCount, buffers.capacity)
   let jobs = 0
   for (let slot = 0; slot < limit; slot++) {
     if (buffers.active[slot] === 0) continue
-    const same = Math.round(buffers.fromR[slot]!) === Math.round(buffers.toR[slot]!)
-      && Math.round(buffers.fromG[slot]!) === Math.round(buffers.toG[slot]!)
-      && Math.round(buffers.fromB[slot]!) === Math.round(buffers.toB[slot]!)
-    if (same) continue
+    if (primaryChannelsEqual(buffers, slot)) continue
+    buffers.jobSlot[jobs] = slot
+    jobs++
+  }
+  return jobs
+}
+
+/** Pack slots whose primary or secondary gradient stops differ. */
+export function packChangedGradientSlots(buffers: CellColorBuffers, slotCount: number): number {
+  const limit = Math.min(slotCount, buffers.capacity)
+  let jobs = 0
+  for (let slot = 0; slot < limit; slot++) {
+    if (buffers.active[slot] === 0) continue
+    if (primaryChannelsEqual(buffers, slot) && secondaryChannelsEqual(buffers, slot)) continue
     buffers.jobSlot[jobs] = slot
     jobs++
   }
