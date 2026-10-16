@@ -30,7 +30,9 @@ export type HighlightOptionValue
     | `jlpt:${JlptLevel}`
     | `srs:unstudied`
     | `srs:1-4`
-    | `srs:5-9`
+    | `srs:5-5`
+    | `srs:6-7`
+    | `srs:8-8`
     | `srs:9-9`
     | `wk:${number}`
 
@@ -121,7 +123,9 @@ export const HIGHLIGHT_JLPT_OPTIONS: readonly HighlightMenuItem[] = [
 export const HIGHLIGHT_SRS_OPTIONS: readonly HighlightMenuItem[] = [
   { label: 'Unstudied', value: 'srs:unstudied' },
   { label: 'Apprentice (1–4)', value: 'srs:1-4' },
-  { label: 'Guru+ (5–9)', value: 'srs:5-9' },
+  { label: 'Guru (5)', value: 'srs:5-5' },
+  { label: 'Master (6–7)', value: 'srs:6-7' },
+  { label: 'Enlightened (8)', value: 'srs:8-8' },
   { label: 'Burned (9)', value: 'srs:9-9' }
 ] as const
 

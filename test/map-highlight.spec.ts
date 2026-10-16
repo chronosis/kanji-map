@@ -175,7 +175,9 @@ describe('map-highlight', () => {
   it('parses highlight option values and menu groups', () => {
     expect(parseHighlightGradeValue('year:jh')).toBe('jh')
     expect(parseHighlightSrsValue('srs:unstudied')).toEqual({ min: -1, max: -1 })
-    expect(parseHighlightSrsValue('srs:5-9')).toEqual({ min: 5, max: 9 })
+    expect(parseHighlightSrsValue('srs:5-5')).toEqual({ min: 5, max: 5 })
+    expect(parseHighlightSrsValue('srs:6-7')).toEqual({ min: 6, max: 7 })
+    expect(parseHighlightSrsValue('srs:8-8')).toEqual({ min: 8, max: 8 })
     expect(parseHighlightWkLevelValue('wk:12')).toBe(12)
     expect(parseHighlightWkLevelValue('wk:0')).toBeNull()
     expect(parseHighlightWkLevelValue('wk:61')).toBeNull()
@@ -208,6 +210,7 @@ describe('map-highlight', () => {
     })
     expect(expanded[0]).toHaveLength(8) // header + 7 years
     expect(expanded[1]).toHaveLength(6) // header + 5 JLPT
+    expect(expanded[2]).toHaveLength(7) // header + 6 SRS stages
     expect(expanded[3]).toHaveLength(61) // header + 60 levels
 
     const wkCollapsed = buildCollapsibleHighlightMenuItems({
