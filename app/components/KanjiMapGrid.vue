@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import type { ColorMode, MapCell } from '../../shared/types/kanji'
+import type { ColorMode, MapCell, SecondaryColorPaint } from '../../shared/types/kanji'
 import type { MapHighlightFilters } from '../../shared/utils/map-highlight'
 import {
   cellBorderColor,
+  cellPaintColor,
+  cellSecondaryStyle,
   cellVisualClass,
   formatAccuracy,
+  SECONDARY_GRADIENT_ANGLE_DEG,
   srsDisplayColor,
   srsDisplayLabel
 } from '../../shared/utils/colors'
@@ -14,18 +17,23 @@ import { clampPan } from '../../shared/utils/pan-clamp'
 import {
   CELL_COLOR_LERP_MS,
   ensureCellColorBuffers,
+  gradientBackgroundImage,
   lerpRgbChannel,
   packChangedColorSlots,
+  packChangedGradientSlots,
   readCssRgbChannels,
+  readHexRgbChannels,
   rgbCss,
   type CellColorBuffers
 } from '../../shared/utils/color-lerp'
 import {
   CELL_MOVE_MS,
+  CELL_FADE_MS,
   CELL_MOVE_ENTER,
   CELL_MOVE_EXIT,
   CELL_MOVE_SLIDE,
   CELL_MOVE_SNAP,
+  CELL_MOVE_STAY,
   boardViewFromViewport,
   ensureCellMotionBuffers,
   fillGridPositions,
@@ -35,6 +43,7 @@ import {
   rowPastBottom,
   type CellMotionBuffers
 } from '../../shared/utils/cell-motion'
+import { planCellPresence } from '../../shared/utils/cell-presence'
 import {
   DEFAULT_GRID_COLUMNS,
   gridTrackColumnCount,
@@ -53,8 +62,16 @@ const CELL_META_CLASS = 'pointer-events-none absolute text-[0.5rem] leading-none
 
 const props = defineProps<{
   cells: MapCell[]
+  /**
+   * Full map for this snapshot, including kanji the toolbar filter omitted.
+   * A card that is fading out reads its new stage from here.
+   */
+  catalog?: MapCell[]
   colorMode: ColorMode
-  borderColorMode: ColorMode
+  /** Scale used for the secondary border or gradient (same options as Color mode). */
+  secondaryColorMode: ColorMode
+  /** Border draws a 2px edge; Gradient blends primary → secondary across the fill. */
+  secondaryColorPaint?: SecondaryColorPaint
   highlightFilters: MapHighlightFilters
   /** Corpus maxes for stroke / reading heatmaps (stable across filters). */
   heatmapScale?: { maxStrokes: number, maxReadingCount: number }
@@ -84,9 +101,21 @@ const { colorTransitionId } = useApiSync()
 let colorTransitionFrame = 0
 let colorBuffers: CellColorBuffers | null = null
 let colorJobCount = 0
+/** When true, the in-flight color blend animates gradient stops instead of a solid fill. */
+let colorLerpGradient = false
 let capturedTransitionId: number | null = null
+/** Modes used to sample “from” colors before a toolbar / paint change. */
+let paintFromPrimary: ColorMode = 'none'
+let paintFromSecondary: ColorMode = 'none'
+let paintFromPaint: SecondaryColorPaint = 'border'
+let paintFromReady = false
 let moveGeneration = 0
 let moveTimer = 0
+let fadeGeneration = 0
+let fadeTimer = 0
+let fadePromoteTimer = 0
+/** True when this cells update should start a filter fade after the DOM settles. */
+let fadeArmed = false
 let motion: CellMotionBuffers | null = null
 let slotCount = 0
 /** Previous character order, reused so a reorder check does not allocate a joined string. */
@@ -104,6 +133,17 @@ interface SlottedCell extends HTMLElement {
 const stableCells = ref<MapCell[]>([])
 const stableIndex = new Map<string, number>()
 const nodeByCharacter = new Map<string, SlottedCell>()
+
+/**
+ * Filter / snapshot membership.
+ * `exit-hold` keeps the current opacity and arms the fade; `exit` fades to 0.
+ * `enter` mounts at opacity 0; `enter-live` fades to the resting opacity.
+ * `show` fades a card back in after its exit was cancelled.
+ */
+type CellPresence = 'exit-hold' | 'exit' | 'enter' | 'enter-live' | 'show'
+const presence = ref(new Map<string, CellPresence>())
+
+const MOVE_TRANSITION = `transform ${CELL_MOVE_MS}ms ease-out, opacity ${CELL_FADE_MS}ms ease-out`
 
 const STRIDE_X = CELL_W_PX + GAP_PX
 const STRIDE_Y = CELL_H_PX + GAP_PX
@@ -262,6 +302,8 @@ function hideCellTooltip() {
 }
 
 function onCellPointerEnter(cell: MapCell, event: PointerEvent) {
+  const state = presence.value.get(cell.character)
+  if (state === 'exit' || state === 'exit-hold') return
   if (event.pointerType === 'touch' || dragging.value) return
   const target = event.currentTarget
   if (!(target instanceof HTMLElement)) return
@@ -297,30 +339,88 @@ const cellBoxStyle = {
 }
 
 function cellStyle(cell: MapCell): Record<string, string> {
-  const border = cellBorderColor(props.borderColorMode, cellVisualInput(cell), props.heatmapScale)
-  if (!border) return cellBoxStyle
   return {
     ...cellBoxStyle,
-    outline: `2px solid ${border}`,
-    outlineOffset: '-2px'
+    ...cellSecondaryStyle(
+      props.secondaryColorPaint ?? 'border',
+      props.colorMode,
+      props.secondaryColorMode,
+      cellVisualInput(cell),
+      props.heatmapScale
+    )
   }
+}
+
+function usesGradientPaint(paint: SecondaryColorPaint, secondaryMode: ColorMode): boolean {
+  return paint === 'gradient' && secondaryMode !== 'none'
+}
+
+function secondaryGradientActive(): boolean {
+  return usesGradientPaint(props.secondaryColorPaint ?? 'border', props.secondaryColorMode)
+}
+
+function commitPaintFrom() {
+  paintFromPrimary = props.colorMode
+  paintFromSecondary = props.secondaryColorMode
+  paintFromPaint = props.secondaryColorPaint ?? 'border'
+  paintFromReady = true
 }
 
 function stopColorLerpFrame() {
   if (colorTransitionFrame) cancelAnimationFrame(colorTransitionFrame)
   colorTransitionFrame = 0
   colorJobCount = 0
+  colorLerpGradient = false
+}
+
+function clearLerpPaint(node: HTMLElement) {
+  node.style.backgroundColor = ''
+  node.style.backgroundImage = ''
 }
 
 function cancelColorLerp() {
   const buffers = colorBuffers
   const jobs = colorJobCount
+  const gradient = colorLerpGradient
   stopColorLerpFrame()
   if (!buffers) return
   for (let i = 0; i < jobs; i++) {
     const node = slottedCells[buffers.jobSlot[i]!]
-    if (node) node.style.backgroundColor = ''
+    if (!node) continue
+    if (gradient) clearLerpPaint(node)
+    else node.style.backgroundColor = ''
   }
+}
+
+function cellForNode(node: SlottedCell): MapCell | null {
+  const character = node.dataset.character
+  if (!character) return null
+  const index = stableIndex.get(character)
+  if (index == null) return null
+  return stableCells.value[index] ?? null
+}
+
+/** Write primary/secondary stops for a paint mode into one end of the color buffers. */
+function writeGradientStops(
+  primaryMode: ColorMode,
+  secondaryMode: ColorMode,
+  paint: SecondaryColorPaint,
+  cell: MapCell,
+  slot: number,
+  primaryR: Float32Array,
+  primaryG: Float32Array,
+  primaryB: Float32Array,
+  secondaryR: Float32Array,
+  secondaryG: Float32Array,
+  secondaryB: Float32Array
+): boolean {
+  const input = cellVisualInput(cell)
+  const primary = cellPaintColor(primaryMode, input, props.heatmapScale)
+  if (!readHexRgbChannels(primary, slot, primaryR, primaryG, primaryB)) return false
+  const secondary = usesGradientPaint(paint, secondaryMode)
+    ? (cellBorderColor(secondaryMode, input, props.heatmapScale) ?? primary)
+    : primary
+  return readHexRgbChannels(secondary, slot, secondaryR, secondaryG, secondaryB)
 }
 
 function collectVisibleCells(): number {
@@ -393,11 +493,45 @@ function snapshotCellColors() {
   }
 }
 
+function snapshotGradientColors(
+  primaryMode: ColorMode,
+  secondaryMode: ColorMode,
+  paint: SecondaryColorPaint
+) {
+  const count = collectVisibleCells()
+  assignSlots(count)
+  const buffers = colorBuffers
+  if (!buffers || count === 0) return
+  buffers.active.fill(0, 0, Math.min(slotCount, buffers.capacity))
+  for (let i = 0; i < count; i++) {
+    const node = visibleCells[i]!
+    const slot = node.kmSlot
+    if (slot == null) continue
+    const cell = cellForNode(node)
+    if (!cell) continue
+    const readable = writeGradientStops(
+      primaryMode,
+      secondaryMode,
+      paint,
+      cell,
+      slot,
+      buffers.fromR,
+      buffers.fromG,
+      buffers.fromB,
+      buffers.fromSR,
+      buffers.fromSG,
+      buffers.fromSB
+    )
+    buffers.active[slot] = readable ? 1 : 0
+    slottedCells[slot] = node
+  }
+}
+
 function measureColorJobs(): number {
   const buffers = colorBuffers
   if (!buffers) return 0
   const count = collectVisibleCells()
-  for (let i = 0; i < count; i++) visibleCells[i]!.style.backgroundColor = ''
+  for (let i = 0; i < count; i++) clearLerpPaint(visibleCells[i]!)
   void viewport.value?.offsetWidth
   for (let i = 0; i < count; i++) {
     const node = visibleCells[i]!
@@ -415,15 +549,50 @@ function measureColorJobs(): number {
   return packChangedColorSlots(buffers, slotCount)
 }
 
+function measureGradientJobs(
+  primaryMode: ColorMode,
+  secondaryMode: ColorMode,
+  paint: SecondaryColorPaint
+): number {
+  const buffers = colorBuffers
+  if (!buffers) return 0
+  const count = collectVisibleCells()
+  for (let i = 0; i < count; i++) {
+    const node = visibleCells[i]!
+    clearLerpPaint(node)
+    const slot = node.kmSlot
+    if (slot == null || buffers.active[slot] === 0) continue
+    const cell = cellForNode(node)
+    if (!cell) continue
+    writeGradientStops(
+      primaryMode,
+      secondaryMode,
+      paint,
+      cell,
+      slot,
+      buffers.toR,
+      buffers.toG,
+      buffers.toB,
+      buffers.toSR,
+      buffers.toSG,
+      buffers.toSB
+    )
+    slottedCells[slot] = node
+  }
+  return packChangedGradientSlots(buffers, slotCount)
+}
+
 function beginColorLerp(jobCount: number) {
   const buffers = colorBuffers
   if (!buffers || jobCount === 0) return
   if (colorTransitionFrame) cancelAnimationFrame(colorTransitionFrame)
   colorJobCount = jobCount
+  colorLerpGradient = false
   for (let i = 0; i < jobCount; i++) {
     const slot = buffers.jobSlot[i]!
     const node = slottedCells[slot]
     if (!node) continue
+    node.style.backgroundImage = ''
     node.style.backgroundColor = rgbCss(
       Math.round(buffers.fromR[slot]!),
       Math.round(buffers.fromG[slot]!),
@@ -458,6 +627,99 @@ function beginColorLerp(jobCount: number) {
   colorTransitionFrame = requestAnimationFrame(step)
 }
 
+function beginGradientLerp(jobCount: number, endUsesGradient: boolean) {
+  const buffers = colorBuffers
+  if (!buffers || jobCount === 0) return
+  if (colorTransitionFrame) cancelAnimationFrame(colorTransitionFrame)
+  colorJobCount = jobCount
+  colorLerpGradient = true
+  for (let i = 0; i < jobCount; i++) {
+    const slot = buffers.jobSlot[i]!
+    const node = slottedCells[slot]
+    if (!node) continue
+    node.style.backgroundColor = ''
+    node.style.backgroundImage = gradientBackgroundImage(
+      SECONDARY_GRADIENT_ANGLE_DEG,
+      Math.round(buffers.fromR[slot]!),
+      Math.round(buffers.fromG[slot]!),
+      Math.round(buffers.fromB[slot]!),
+      Math.round(buffers.fromSR[slot]!),
+      Math.round(buffers.fromSG[slot]!),
+      Math.round(buffers.fromSB[slot]!)
+    )
+  }
+
+  const startedAt = performance.now()
+  const step = (now: number) => {
+    const t = Math.min(1, (now - startedAt) / CELL_COLOR_LERP_MS)
+    for (let i = 0; i < jobCount; i++) {
+      const slot = buffers.jobSlot[i]!
+      const node = slottedCells[slot]
+      if (!node) continue
+      if (t >= 1) {
+        if (endUsesGradient) {
+          node.style.backgroundImage = gradientBackgroundImage(
+            SECONDARY_GRADIENT_ANGLE_DEG,
+            Math.round(buffers.toR[slot]!),
+            Math.round(buffers.toG[slot]!),
+            Math.round(buffers.toB[slot]!),
+            Math.round(buffers.toSR[slot]!),
+            Math.round(buffers.toSG[slot]!),
+            Math.round(buffers.toSB[slot]!)
+          )
+        } else {
+          clearLerpPaint(node)
+        }
+        continue
+      }
+      node.style.backgroundImage = gradientBackgroundImage(
+        SECONDARY_GRADIENT_ANGLE_DEG,
+        lerpRgbChannel(buffers.fromR[slot]!, buffers.toR[slot]!, t),
+        lerpRgbChannel(buffers.fromG[slot]!, buffers.toG[slot]!, t),
+        lerpRgbChannel(buffers.fromB[slot]!, buffers.toB[slot]!, t),
+        lerpRgbChannel(buffers.fromSR[slot]!, buffers.toSR[slot]!, t),
+        lerpRgbChannel(buffers.fromSG[slot]!, buffers.toSG[slot]!, t),
+        lerpRgbChannel(buffers.fromSB[slot]!, buffers.toSB[slot]!, t)
+      )
+    }
+    if (t < 1) {
+      colorTransitionFrame = requestAnimationFrame(step)
+      return
+    }
+    colorTransitionFrame = 0
+    colorJobCount = 0
+    colorLerpGradient = false
+  }
+  colorTransitionFrame = requestAnimationFrame(step)
+}
+
+function snapshotPaintColors(gradient: boolean) {
+  if (gradient) {
+    snapshotGradientColors(
+      paintFromReady ? paintFromPrimary : props.colorMode,
+      paintFromReady ? paintFromSecondary : props.secondaryColorMode,
+      paintFromReady ? paintFromPaint : (props.secondaryColorPaint ?? 'border')
+    )
+    return
+  }
+  snapshotCellColors()
+}
+
+function finishPaintLerp(gradient: boolean) {
+  if (gradient) {
+    const paint = props.secondaryColorPaint ?? 'border'
+    const jobs = measureGradientJobs(props.colorMode, props.secondaryColorMode, paint)
+    commitPaintFrom()
+    if (jobs === 0) return
+    beginGradientLerp(jobs, usesGradientPaint(paint, props.secondaryColorMode))
+    return
+  }
+  commitPaintFrom()
+  const jobs = measureColorJobs()
+  if (jobs === 0) return
+  beginColorLerp(jobs)
+}
+
 watch(colorTransitionId, (id) => {
   if (id <= 0) {
     capturedTransitionId = null
@@ -465,28 +727,40 @@ watch(colorTransitionId, (id) => {
   }
   cancelColorLerp()
   capturedTransitionId = id
-  snapshotCellColors()
+  snapshotPaintColors(secondaryGradientActive() || usesGradientPaint(paintFromPaint, paintFromSecondary))
 }, { flush: 'sync' })
 
 watch(() => props.cells, () => {
   if (capturedTransitionId == null || capturedTransitionId !== colorTransitionId.value) return
-  const jobs = measureColorJobs()
-  if (jobs === 0) return
+  const gradient = secondaryGradientActive()
+    || usesGradientPaint(paintFromPaint, paintFromSecondary)
   capturedTransitionId = null
-  beginColorLerp(jobs)
+  finishPaintLerp(gradient)
 }, { flush: 'post' })
 
-watch(() => props.colorMode, () => {
-  capturedTransitionId = null
-  stopColorLerpFrame()
-  snapshotCellColors()
-}, { flush: 'pre' })
+watch(
+  () => [props.colorMode, props.secondaryColorMode, props.secondaryColorPaint ?? 'border'] as const,
+  (next) => {
+    capturedTransitionId = null
+    const nextPaint = next[2]
+    const gradient = usesGradientPaint(paintFromReady ? paintFromPaint : nextPaint, paintFromReady ? paintFromSecondary : next[1])
+      || usesGradientPaint(nextPaint, next[1])
+    cancelColorLerp()
+    snapshotPaintColors(gradient)
+  },
+  { flush: 'pre' }
+)
 
-watch(() => props.colorMode, () => {
-  const jobs = measureColorJobs()
-  if (jobs === 0) return
-  beginColorLerp(jobs)
-}, { flush: 'post' })
+watch(
+  () => [props.colorMode, props.secondaryColorMode, props.secondaryColorPaint ?? 'border'] as const,
+  (next) => {
+    const nextPaint = next[2]
+    const gradient = usesGradientPaint(paintFromReady ? paintFromPaint : nextPaint, paintFromReady ? paintFromSecondary : next[1])
+      || usesGradientPaint(nextPaint, next[1])
+    finishPaintLerp(gradient)
+  },
+  { flush: 'post' }
+)
 
 function ensureStable(cells: readonly MapCell[]) {
   const current = stableCells.value
@@ -539,7 +813,10 @@ function commitGridPositions() {
     const node = nodeByCharacter.get(cells[i]!.character)
     if (!node) continue
     if (typeof node.getAnimations === 'function') {
-      for (const animation of node.getAnimations()) animation.cancel()
+      for (const animation of node.getAnimations()) {
+        if ('transitionProperty' in animation && animation.transitionProperty === 'opacity') continue
+        animation.cancel()
+      }
     }
     node.style.transition = 'none'
     node.style.transform = translateOf(buffers.toX[i]!, buffers.toY[i]!)
@@ -605,14 +882,20 @@ function placeCells(animate: boolean) {
 
   const exitY = rowPastBottom(view.bottom, STRIDE_Y)
   const moving = planCellMoves(buffers, count, CELL_W_PX, CELL_H_PX, view, exitY)
+  const instant: HTMLElement[] = []
   if (moving === 0) {
     for (let i = 0; i < count; i++) {
-      if (buffers.kind[i] !== CELL_MOVE_SNAP) continue
+      const kind = buffers.kind[i]
+      if (kind !== CELL_MOVE_SNAP && kind !== CELL_MOVE_STAY) continue
       const node = nodeByCharacter.get(cells[i]!.character)
       if (!node) continue
+      const next = translateOf(buffers.toX[i]!, buffers.toY[i]!)
+      if (kind === CELL_MOVE_STAY && node.style.transform === next) continue
       node.style.transition = 'none'
-      node.style.transform = translateOf(buffers.toX[i]!, buffers.toY[i]!)
+      node.style.transform = next
+      if (kind === CELL_MOVE_STAY) instant.push(node)
     }
+    releaseInstantTransitions(instant)
     return
   }
 
@@ -636,10 +919,20 @@ function placeCells(animate: boolean) {
       node.style.transform = translateOf(buffers.toX[i]!, buffers.toY[i]!)
       continue
     }
+    if (kind === CELL_MOVE_STAY) {
+      const next = translateOf(buffers.toX[i]!, buffers.toY[i]!)
+      if (node.style.transform === next) continue
+      node.style.transition = 'none'
+      node.style.transform = next
+      instant.push(node)
+      continue
+    }
     if (kind !== CELL_MOVE_SLIDE && kind !== CELL_MOVE_EXIT) continue
-    node.style.transition = `transform ${CELL_MOVE_MS}ms ease-out`
+    node.style.transition = MOVE_TRANSITION
     node.style.transform = translateOf(buffers.moveX[i]!, buffers.moveY[i]!)
   }
+
+  releaseInstantTransitions(instant)
 
   if (entering) void root?.offsetWidth
 
@@ -650,7 +943,7 @@ function placeCells(animate: boolean) {
         if (buffers.kind[i] !== CELL_MOVE_ENTER) continue
         const node = nodeByCharacter.get(cells[i]!.character)
         if (!node) continue
-        node.style.transition = `transform ${CELL_MOVE_MS}ms ease-out`
+        node.style.transition = MOVE_TRANSITION
         node.style.transform = translateOf(buffers.moveX[i]!, buffers.moveY[i]!)
       }
     })
@@ -663,28 +956,187 @@ function placeCells(animate: boolean) {
   }, CELL_MOVE_MS + 80)
 }
 
+function releaseInstantTransitions(nodes: readonly HTMLElement[]) {
+  if (nodes.length === 0) return
+  void viewport.value?.offsetWidth
+  for (const node of nodes) {
+    if (node.style.transition === 'none') node.style.transition = ''
+  }
+}
+
+function exitingCharacters(): Set<string> {
+  const exiting = new Set<string>()
+  for (const [character, state] of presence.value) {
+    if (state === 'exit' || state === 'exit-hold') exiting.add(character)
+  }
+  return exiting
+}
+
+function replaceStable(mounted: readonly MapCell[]) {
+  const sorted = mounted.slice().sort((a, b) => (
+    a.character < b.character ? -1 : a.character > b.character ? 1 : 0
+  ))
+  stableIndex.clear()
+  for (let i = 0; i < sorted.length; i++) stableIndex.set(sorted[i]!.character, i)
+  stableCells.value = sorted
+}
+
+function membersMatch(cells: readonly MapCell[], exiting: ReadonlySet<string>): boolean {
+  if (stableCells.value.length !== cells.length) return false
+  for (let i = 0; i < cells.length; i++) {
+    const character = cells[i]!.character
+    if (!stableIndex.has(character) || exiting.has(character)) return false
+  }
+  return true
+}
+
+function syncMembership(cells: readonly MapCell[]) {
+  const exiting = exitingCharacters()
+  if (stableCells.value.length === 0 || membersMatch(cells, exiting)) {
+    ensureStable(cells)
+    return { exit: [] as string[], enter: [] as string[], restore: [] as string[] }
+  }
+  const plan = planCellPresence(stableCells.value, cells, exiting)
+  const catalog = new Map<string, MapCell>()
+  for (const cell of props.catalog ?? []) catalog.set(cell.character, cell)
+  replaceStable(plan.mounted.map(cell => catalog.get(cell.character) ?? cell))
+  return plan
+}
+
+const pinX = new Float64Array(1)
+const pinY = new Float64Array(1)
+
+/** Hold a leaving card on its current pixel so neighbors can slide underneath the fade. */
+function pinExitingNodes() {
+  const pinned: HTMLElement[] = []
+  for (const cell of stableCells.value) {
+    if (presence.value.get(cell.character) !== 'exit-hold') continue
+    const node = nodeByCharacter.get(cell.character)
+    if (!node) continue
+    if (!readTranslate(getComputedStyle(node).transform, 0, pinX, pinY)) continue
+    node.style.transition = 'none'
+    node.style.transform = translateOf(pinX[0]!, pinY[0]!)
+    pinned.push(node)
+  }
+  releaseInstantTransitions(pinned)
+}
+
+function promoteFades() {
+  const next = new Map(presence.value)
+  let changed = false
+  for (const [character, state] of next) {
+    if (state === 'exit-hold') {
+      next.set(character, 'exit')
+      changed = true
+    } else if (state === 'enter') {
+      next.set(character, 'enter-live')
+      changed = true
+    }
+  }
+  if (changed) presence.value = next
+}
+
+function finishFades(generation: number) {
+  if (generation !== fadeGeneration) return
+  fadeTimer = 0
+  const next = new Map(presence.value)
+  for (const [character, state] of presence.value) {
+    if (
+      state === 'exit'
+      || state === 'exit-hold'
+      || state === 'enter'
+      || state === 'enter-live'
+      || state === 'show'
+    ) {
+      next.delete(character)
+    }
+  }
+  presence.value = next
+  const live = new Set<string>()
+  for (const cell of props.cells) live.add(cell.character)
+  const kept: MapCell[] = []
+  for (const cell of stableCells.value) {
+    if (live.has(cell.character) || next.has(cell.character)) kept.push(cell)
+  }
+  if (kept.length !== stableCells.value.length) replaceStable(kept)
+}
+
+function armFadeClock() {
+  const generation = ++fadeGeneration
+  if (fadeTimer) {
+    clearTimeout(fadeTimer)
+    fadeTimer = 0
+  }
+  if (fadePromoteTimer) {
+    clearTimeout(fadePromoteTimer)
+    fadePromoteTimer = 0
+  }
+  // Wait one turn so the resting opacity paints, then fade. Removal is scheduled
+  // only after that fade starts, so a late timer cannot drop the card at full opacity.
+  fadePromoteTimer = window.setTimeout(() => {
+    fadePromoteTimer = 0
+    if (generation !== fadeGeneration) return
+    promoteFades()
+    fadeTimer = window.setTimeout(() => finishFades(generation), CELL_FADE_MS + 80)
+  }, 32)
+}
+
 let placeAnimated = false
 
 watch(() => props.cells, (cells) => {
-  placeAnimated = orderScratch.length > 0 && orderScratch.length === cells.length && !orderUnchanged(cells)
-  ensureStable(cells)
+  placeAnimated = orderScratch.length > 0 && !orderUnchanged(cells)
+  const plan = syncMembership(cells)
+  fadeArmed = false
+  if (plan.exit.length === 0 && plan.enter.length === 0 && plan.restore.length === 0) return
+  const next = new Map(presence.value)
+  for (const character of plan.restore) {
+    if (next.get(character) === 'exit') next.set(character, 'show')
+    else next.delete(character)
+  }
+  for (const character of plan.exit) next.set(character, 'exit-hold')
+  for (const character of plan.enter) next.set(character, 'enter')
+  presence.value = next
+  fadeArmed = true
+  if (tooltipCell.value && plan.exit.includes(tooltipCell.value.character)) hideCellTooltip()
 }, { flush: 'pre' })
 
 watch(() => props.cells, (cells) => {
   placeCells(placeAnimated)
   commitOrder(cells)
+  if (!fadeArmed) return
+  fadeArmed = false
+  pinExitingNodes()
+  armFadeClock()
 }, { flush: 'post' })
 
 ensureStable(props.cells)
+commitPaintFrom()
 
 onUnmounted(() => {
   moveGeneration += 1
+  fadeGeneration += 1
   if (moveTimer) clearTimeout(moveTimer)
+  if (fadeTimer) clearTimeout(fadeTimer)
+  if (fadePromoteTimer) clearTimeout(fadePromoteTimer)
   if (colorTransitionFrame) cancelAnimationFrame(colorTransitionFrame)
 })
 
 function dimmed(cell: MapCell): boolean {
   return isMapCellDimmed(cell, props.highlightFilters)
+}
+
+function presenceClass(cell: MapCell): string {
+  const state = presence.value.get(cell.character)
+  const opacity = dimmed(cell) ? 'opacity-20' : 'opacity-100'
+  const hover = dimmed(cell) ? '' : ' hover:ring-2 hover:ring-[#ffffff]'
+  const fade = 'transition-opacity duration-1000 ease-out'
+  if (state === 'exit' || state === 'exit-hold') {
+    const shown = state === 'exit' ? 'opacity-0' : opacity
+    return `pointer-events-none z-[2] ${shown} ${fade}`
+  }
+  if (state === 'enter') return `opacity-0 ${fade}`
+  if (state === 'enter-live' || state === 'show') return `${opacity}${hover} ${fade}`
+  return `${opacity}${hover} transition-opacity`
 }
 
 function stepColumns(direction: -1 | 1) {
@@ -848,10 +1300,6 @@ watch(columns, () => {
   nextTick(() => fitWidth())
 })
 
-watch(() => props.cells.length, () => {
-  nextTick(() => fitWidth())
-})
-
 defineExpose({ zoomIn, zoomOut, resetView, fitWidth })
 </script>
 
@@ -895,11 +1343,8 @@ defineExpose({ zoomIn, zoomOut, resetView, fitWidth })
           v-for="cell in stableCells"
           :key="cell.character"
           type="button"
-          class="km-cell absolute flex items-center justify-center rounded-sm text-base font-medium leading-none transition-opacity"
-          :class="[
-            cellClass(cell),
-            dimmed(cell) ? 'opacity-20' : 'opacity-100 hover:ring-2 hover:ring-[#ffffff]'
-          ]"
+          class="km-cell absolute flex items-center justify-center rounded-sm text-base font-medium leading-none"
+          :class="[cellClass(cell), presenceClass(cell)]"
           :style="cellStyle(cell)"
           :data-character="cell.character"
           :aria-description="cellTitle(cell)"

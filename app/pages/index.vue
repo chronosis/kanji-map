@@ -29,7 +29,7 @@ useSeoMeta({
 })
 
 const { alertsOpen, selectedAlertId } = useApiSync()
-const { defaultOrder, defaultColorMode, settings } = useMapSettings()
+const { defaultOrder, defaultColorMode, secondaryColorPaint, settings } = useMapSettings()
 
 const {
   data,
@@ -47,7 +47,7 @@ const initialSettings = coerceMapUiSettingsForSources(
   wanikaniConfigured.value
 )
 const colorMode = ref<ColorMode>(initialSettings.defaultColorMode)
-const borderColorMode = ref<ColorMode>('none')
+const secondaryColorMode = ref<ColorMode>('none')
 const orderMode = ref<OrderMode>(initialSettings.defaultOrder)
 const columnCount = ref<GridColumnCount>(DEFAULT_GRID_COLUMNS)
 const highlightSelection = ref<Array<{ label: string, value: HighlightOptionValue }>>([])
@@ -77,12 +77,13 @@ watch(
     const coerced = coerceMapUiSettingsForSources({
       kanjiFont: settings.value.kanjiFont,
       defaultOrder: orderMode.value,
-      defaultColorMode: colorMode.value
+      defaultColorMode: colorMode.value,
+      secondaryColorPaint: settings.value.secondaryColorPaint
     }, configured)
     colorMode.value = coerced.defaultColorMode
     orderMode.value = coerced.defaultOrder
-    if (!configured && WK_GATED_COLOR_MODES.has(borderColorMode.value)) {
-      borderColorMode.value = 'none'
+    if (!configured && WK_GATED_COLOR_MODES.has(secondaryColorMode.value)) {
+      secondaryColorMode.value = 'none'
     }
     if (!configured) {
       const allowed = new Set(filterHighlightSelectionForSources(
@@ -266,9 +267,9 @@ watch(mapFilterSelection, () => {
           />
         </UFormField>
 
-        <UFormField label="Border color">
+        <UFormField label="Secondary color">
           <USelect
-            v-model="borderColorMode"
+            v-model="secondaryColorMode"
             :items="colorModeItems"
             value-key="value"
             class="w-48"
@@ -305,8 +306,10 @@ watch(mapFilterSelection, () => {
       v-model:columns="columnCount"
       class="min-h-0 flex-1"
       :cells="orderedCells"
+      :catalog="viewCells"
       :color-mode="colorMode"
-      :border-color-mode="borderColorMode"
+      :secondary-color-mode="secondaryColorMode"
+      :secondary-color-paint="secondaryColorPaint"
       :highlight-filters="highlightFilters"
       :heatmap-scale="heatmapScale"
       :show-accuracy="wanikaniConfigured"
