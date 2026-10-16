@@ -1,4 +1,4 @@
-import type { ColorMode, MapFilterId } from '../types/kanji'
+import type { ColorMode, MapFilterId, SecondaryColorPaint } from '../types/kanji'
 import { SOURCE_WANIKANI } from '../types/kanji'
 import { accuracyFromCounts } from './merge-progress'
 
@@ -437,6 +437,59 @@ export function cellBorderColor(
   scale?: HeatmapScale
 ): string | null {
   return visualFillColor(cellVisualClass(mode, input, scale))
+}
+
+/** How Secondary color is drawn. Default is the 2px edge. */
+export const DEFAULT_SECONDARY_COLOR_PAINT: SecondaryColorPaint = 'border'
+
+export const SECONDARY_COLOR_PAINT_ITEMS: ReadonlyArray<{ label: string, value: SecondaryColorPaint }> = [
+  { label: 'Border', value: 'border' },
+  { label: 'Gradient', value: 'gradient' }
+]
+
+/**
+ * CSS gradient angle for secondary Gradient mode.
+ * 150deg is 60° below the horizontal, top-left → bottom-right.
+ */
+export const SECONDARY_GRADIENT_ANGLE_DEG = 150
+
+/** Hex fill for a color mode, including the grey bands used when that mode has no chroma. */
+export function cellPaintColor(
+  mode: ColorMode,
+  input: CellVisualInput,
+  scale?: HeatmapScale
+): string {
+  const className = cellVisualClass(mode, input, scale)
+  const chromatic = visualFillColor(className)
+  if (chromatic) return chromatic
+  if (className.includes('km-untracked')) return SRS_BAND_COLORS.untracked
+  return SRS_BAND_COLORS.unstudied
+}
+
+/**
+ * Inline styles for Secondary color on a card.
+ * Border mode: 2px outline when secondary is chromatic.
+ * Gradient mode: primary → secondary fill at {@link SECONDARY_GRADIENT_ANGLE_DEG}.
+ */
+export function cellSecondaryStyle(
+  paint: SecondaryColorPaint,
+  primaryMode: ColorMode,
+  secondaryMode: ColorMode,
+  input: CellVisualInput,
+  scale?: HeatmapScale
+): Record<string, string> {
+  const secondary = cellBorderColor(secondaryMode, input, scale)
+  if (!secondary) return {}
+  if (paint === 'gradient') {
+    const primary = cellPaintColor(primaryMode, input, scale)
+    return {
+      backgroundImage: `linear-gradient(${SECONDARY_GRADIENT_ANGLE_DEG}deg, ${primary}, ${secondary})`
+    }
+  }
+  return {
+    outline: `2px solid ${secondary}`,
+    outlineOffset: '-2px'
+  }
 }
 
 /** True for overall / meaning / reading accuracy heatmap color modes. */

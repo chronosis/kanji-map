@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   cellBorderColor,
+  cellPaintColor,
+  cellSecondaryStyle,
+  SECONDARY_GRADIENT_ANGLE_DEG,
   cellVisualClass,
   formatAccuracy,
   hasApiSrs,
@@ -66,6 +69,29 @@ describe('colors', () => {
       accuracyAvg: 100
     }))).toBe('#22c55e')
     expect(cellBorderColor('accuracy', unstudied)).toBeNull()
+  })
+
+  it('paints secondary color as a border or a primary→secondary gradient', () => {
+    const burned = input({ inWanikani: true, sources: SOURCE_WANIKANI, srsAvg: 9 })
+    const grade1 = input({ schoolGrade: 1, inJoyoo: true })
+    expect(cellSecondaryStyle('border', 'srs', 'none', burned)).toEqual({})
+    expect(cellSecondaryStyle('border', 'srs', 'year', grade1)).toEqual({
+      outline: '2px solid #fca5a5',
+      outlineOffset: '-2px'
+    })
+    expect(cellSecondaryStyle('gradient', 'srs', 'none', burned)).toEqual({})
+    const burnedGrade1 = input({
+      inWanikani: true,
+      sources: SOURCE_WANIKANI,
+      srsAvg: 9,
+      schoolGrade: 1,
+      inJoyoo: true
+    })
+    expect(cellSecondaryStyle('gradient', 'srs', 'year', burnedGrade1)).toEqual({
+      backgroundImage: `linear-gradient(${SECONDARY_GRADIENT_ANGLE_DEG}deg, #818cf8, #fca5a5)`
+    })
+    expect(cellPaintColor('none', burned)).toBe('#a3a3a3')
+    expect(cellPaintColor('srs', input({ inWanikani: false, sources: 0, srsAvg: null }))).toBe('#737373')
   })
 
   it('names the SRS level that paints the hover bar', () => {

@@ -4,10 +4,10 @@ import {
   type KanjiFontStyle,
   type MapUiSettings
 } from '../../shared/utils/map-settings'
-import type { ColorMode, OrderMode } from '../../shared/types/kanji'
+import type { ColorMode, OrderMode, SecondaryColorPaint } from '../../shared/types/kanji'
 
 /**
- * Cookie-backed UI preferences (kanji font, default order, default color mode).
+ * Cookie-backed UI preferences (kanji font, defaults, secondary color paint).
  */
 export function useMapSettings() {
   const settingsCookie = useCookie<MapUiSettings>(MAP_SETTINGS_COOKIE, {
@@ -45,6 +45,13 @@ export function useMapSettings() {
     }
   })
 
+  const secondaryColorPaint = computed({
+    get: () => settings.value.secondaryColorPaint,
+    set: (secondaryColorPaint: SecondaryColorPaint) => {
+      settings.value = { ...settings.value, secondaryColorPaint }
+    }
+  })
+
   function applyKanjiFontToDocument(font: KanjiFontStyle = kanjiFont.value) {
     if (!import.meta.client) return
     document.documentElement.dataset.kanjiFont = font
@@ -63,6 +70,7 @@ export function useMapSettings() {
     kanjiFont,
     defaultOrder,
     defaultColorMode,
+    secondaryColorPaint,
     applyKanjiFontToDocument
   }
 }

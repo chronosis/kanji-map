@@ -13,38 +13,50 @@ describe('map-settings', () => {
     expect(normalizeMapUiSettings({
       kanjiFont: 'mincho',
       defaultOrder: 'strokes',
-      defaultColorMode: 'year'
+      defaultColorMode: 'year',
+      secondaryColorPaint: 'gradient'
     })).toEqual({
       kanjiFont: 'mincho',
       defaultOrder: 'strokes',
-      defaultColorMode: 'year'
+      defaultColorMode: 'year',
+      secondaryColorPaint: 'gradient'
     })
     expect(normalizeMapUiSettings({
       kanjiFont: 'comic-sans',
       defaultOrder: 'nope',
-      defaultColorMode: 'nope'
+      defaultColorMode: 'nope',
+      secondaryColorPaint: 'stripe'
     })).toEqual(DEFAULT_MAP_UI_SETTINGS)
+    expect(normalizeMapUiSettings({
+      kanjiFont: 'gothic',
+      defaultOrder: 'joyo',
+      defaultColorMode: 'none'
+    }).secondaryColorPaint).toBe('border')
   })
 
   it('coerces WK-gated defaults when WaniKani is unavailable', () => {
     expect(coerceMapUiSettingsForSources({
       kanjiFont: 'gothic',
       defaultOrder: 'srs',
-      defaultColorMode: 'accuracy'
+      defaultColorMode: 'accuracy',
+      secondaryColorPaint: 'gradient'
     }, false)).toEqual({
       kanjiFont: 'gothic',
       defaultOrder: 'joyo',
-      defaultColorMode: 'strokes'
+      defaultColorMode: 'strokes',
+      secondaryColorPaint: 'gradient'
     })
 
     expect(coerceMapUiSettingsForSources({
       kanjiFont: 'calligraphic',
       defaultOrder: 'wk',
-      defaultColorMode: 'wk'
+      defaultColorMode: 'wk',
+      secondaryColorPaint: 'border'
     }, true)).toEqual({
       kanjiFont: 'calligraphic',
       defaultOrder: 'wk',
-      defaultColorMode: 'wk'
+      defaultColorMode: 'wk',
+      secondaryColorPaint: 'border'
     })
   })
 

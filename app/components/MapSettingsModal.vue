@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { SecondaryColorPaint } from '../../shared/types/kanji'
+import { SECONDARY_COLOR_PAINT_ITEMS } from '../../shared/utils/colors'
 import {
   KANJI_FONT_STYLE_ITEMS,
   colorModeItemsForSources,
@@ -13,7 +15,7 @@ const props = defineProps<{
   wanikaniConfigured?: boolean
 }>()
 
-const { kanjiFont, defaultOrder, defaultColorMode, settings } = useMapSettings()
+const { kanjiFont, defaultOrder, defaultColorMode, secondaryColorPaint, settings } = useMapSettings()
 
 const wanikaniConfigured = computed(() => props.wanikaniConfigured !== false)
 
@@ -24,6 +26,7 @@ const colorItems = computed(() => colorModeItemsForSources(wanikaniConfigured.va
 const draftFont = ref<KanjiFontStyle>(kanjiFont.value)
 const draftOrder = ref(defaultOrder.value)
 const draftColor = ref(defaultColorMode.value)
+const draftSecondaryPaint = ref<SecondaryColorPaint>(secondaryColorPaint.value)
 
 watch(open, (isOpen) => {
   if (!isOpen) return
@@ -31,6 +34,7 @@ watch(open, (isOpen) => {
   draftFont.value = coerced.kanjiFont
   draftOrder.value = coerced.defaultOrder
   draftColor.value = coerced.defaultColorMode
+  draftSecondaryPaint.value = coerced.secondaryColorPaint
 })
 
 watch(wanikaniConfigured, (configured) => {
@@ -38,7 +42,8 @@ watch(wanikaniConfigured, (configured) => {
   const coerced = coerceMapUiSettingsForSources({
     kanjiFont: draftFont.value,
     defaultOrder: draftOrder.value,
-    defaultColorMode: draftColor.value
+    defaultColorMode: draftColor.value,
+    secondaryColorPaint: draftSecondaryPaint.value
   }, false)
   draftOrder.value = coerced.defaultOrder
   draftColor.value = coerced.defaultColorMode
@@ -48,7 +53,8 @@ function save() {
   const next = coerceMapUiSettingsForSources({
     kanjiFont: draftFont.value,
     defaultOrder: draftOrder.value,
-    defaultColorMode: draftColor.value
+    defaultColorMode: draftColor.value,
+    secondaryColorPaint: draftSecondaryPaint.value
   }, wanikaniConfigured.value)
   settings.value = next
   open.value = false
@@ -93,6 +99,15 @@ function cancel() {
               <USelect
                 v-model="draftColor"
                 :items="colorItems"
+                value-key="value"
+                class="w-full"
+              />
+            </UFormField>
+
+            <UFormField label="Secondary color mode">
+              <USelect
+                v-model="draftSecondaryPaint"
+                :items="[...SECONDARY_COLOR_PAINT_ITEMS]"
                 value-key="value"
                 class="w-full"
               />

@@ -145,8 +145,10 @@ const statusLegend = [
                 Click a cell for meanings, readings, stroke order, and source links.
               </li>
               <li>
-                <span class="font-medium text-highlighted">Border color</span>
-                — same scales as Color mode, drawn as a 2px edge. Grey cells have no border.
+                <span class="font-medium text-highlighted">Secondary color</span>
+                — same scales as Color mode. In Settings, Secondary color mode paints it as a 2px
+                border or as a 60° top-left → bottom-right gradient from the primary color. Grey
+                secondary values paint nothing.
               </li>
             </ul>
           </div>

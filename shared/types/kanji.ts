@@ -103,6 +103,12 @@ export type ColorMode
     | 'wk-group'
 
 /**
+ * How the secondary color scale is painted on each card.
+ * `border` draws a 2px edge; `gradient` blends primary → secondary across the fill.
+ */
+export type SecondaryColorPaint = 'border' | 'gradient'
+
+/**
  * Toolbar filters that remove matching cells. Several may be active at once.
  * An empty selection shows every cell.
  */

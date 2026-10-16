@@ -1,4 +1,5 @@
-import type { ColorMode, OrderMode } from '../types/kanji'
+import type { ColorMode, OrderMode, SecondaryColorPaint } from '../types/kanji'
+import { DEFAULT_SECONDARY_COLOR_PAINT } from './colors'
 
 /** Kanji glyph typeface for the map / detail modal. */
 export type KanjiFontStyle = 'gothic' | 'mincho' | 'calligraphic'
@@ -7,6 +8,8 @@ export interface MapUiSettings {
   kanjiFont: KanjiFontStyle
   defaultOrder: OrderMode
   defaultColorMode: ColorMode
+  /** How Secondary color is drawn on cards (Border or Gradient). */
+  secondaryColorPaint: SecondaryColorPaint
 }
 
 export const MAP_SETTINGS_COOKIE = 'kanji-map-settings'
@@ -14,7 +17,8 @@ export const MAP_SETTINGS_COOKIE = 'kanji-map-settings'
 export const DEFAULT_MAP_UI_SETTINGS: Readonly<MapUiSettings> = {
   kanjiFont: 'gothic',
   defaultOrder: 'joyo',
-  defaultColorMode: 'none'
+  defaultColorMode: 'none',
+  secondaryColorPaint: DEFAULT_SECONDARY_COLOR_PAINT
 }
 
 export const KANJI_FONT_STYLE_ITEMS: ReadonlyArray<{ label: string, value: KanjiFontStyle }> = [
@@ -68,6 +72,7 @@ export const WK_GATED_ORDER_MODES: ReadonlySet<OrderMode> = new Set([
 const KANJI_FONT_STYLES: ReadonlySet<string> = new Set(['gothic', 'mincho', 'calligraphic'])
 const ORDER_MODES: ReadonlySet<string> = new Set(ALL_ORDER_MODE_ITEMS.map(i => i.value))
 const COLOR_MODES: ReadonlySet<string> = new Set(ALL_COLOR_MODE_ITEMS.map(i => i.value))
+const SECONDARY_COLOR_PAINTS: ReadonlySet<string> = new Set(['border', 'gradient'])
 
 export function isKanjiFontStyle(value: unknown): value is KanjiFontStyle {
   return typeof value === 'string' && KANJI_FONT_STYLES.has(value)
@@ -79,6 +84,10 @@ export function isOrderMode(value: unknown): value is OrderMode {
 
 export function isColorMode(value: unknown): value is ColorMode {
   return typeof value === 'string' && COLOR_MODES.has(value)
+}
+
+export function isSecondaryColorPaint(value: unknown): value is SecondaryColorPaint {
+  return typeof value === 'string' && SECONDARY_COLOR_PAINTS.has(value)
 }
 
 /** Normalize partial / stale cookie payloads into a full settings object. */
@@ -93,7 +102,10 @@ export function normalizeMapUiSettings(raw: unknown): MapUiSettings {
       : DEFAULT_MAP_UI_SETTINGS.defaultOrder,
     defaultColorMode: isColorMode(input.defaultColorMode)
       ? input.defaultColorMode
-      : DEFAULT_MAP_UI_SETTINGS.defaultColorMode
+      : DEFAULT_MAP_UI_SETTINGS.defaultColorMode,
+    secondaryColorPaint: isSecondaryColorPaint(input.secondaryColorPaint)
+      ? input.secondaryColorPaint
+      : DEFAULT_MAP_UI_SETTINGS.secondaryColorPaint
   }
 }
 
